@@ -26,7 +26,7 @@ def beto():
 
 @pytest.fixture
 def pedido_da_ana(ana):
-    return Pedido.objects.create(dono=ana, titulo="Pedido da Ana", valor=10)
+    return Pedido.objects.como_sistema("preparar teste").create(dono=ana, titulo="Pedido da Ana", valor=10)
 
 
 # 1. Ler sem dizer para quem é bloqueado, por qualquer caminho.
@@ -79,7 +79,7 @@ def test_anonimo_e_usuario_ausente_nao_veem_nada(pedido_da_ana):
 
 
 def test_politica_vazia_nao_mostra_nada(ana):
-    Rascunho.objects.create(texto="segredo")
+    Rascunho.objects.como_sistema("preparar teste").create(texto="segredo")
     assert Rascunho.objects.para(ana).count() == 0
 
 

@@ -115,3 +115,71 @@ def sec06_login_obrigatorio_por_padrao(app_configs=None, **kwargs):
             id="SEC.E062",
         )]
     return []
+
+
+# Configurações de segurança (US 1.5)
+
+_MW_OBRIGATORIOS = {
+    "django.middleware.security.SecurityMiddleware": "SEC.E063",
+    "django.middleware.csrf.CsrfViewMiddleware": "SEC.E064",
+    "django.middleware.clickjacking.XFrameOptionsMiddleware": "SEC.E065",
+}
+_HSTS_MINIMO = 60 * 60 * 24 * 365
+_SESSAO_MAXIMA = 60 * 60 * 24 * 30
+
+
+@register(Tags.security)
+def sec01_configuracoes_de_seguranca(app_configs=None, **kwargs):
+    s = settings
+    erros = []
+
+    def erro(msg, id, hint=None):
+        erros.append(Error(msg, hint=hint, id=id))
+
+    if not hasattr(s, "AMBIENTE"):
+        erro(
+            "As configurações do Infra Vibecoding não foram importadas.",
+            "SEC.E010",
+            hint="Coloque 'from infra_vibecoding.configuracoes import *' no início do settings.py.",
+        )
+        return erros
+
+    hashers = list(getattr(s, "PASSWORD_HASHERS", []))
+    if not hashers or not hashers[0].endswith("Argon2PasswordHasher"):
+        erro("A senha não é guardada com Argon2 (primeiro item de PASSWORD_HASHERS).", "SEC.E011")
+
+    if not s.SESSION_COOKIE_HTTPONLY:
+        erro("SESSION_COOKIE_HTTPONLY desligado: o cookie de login ficaria legível por JavaScript.", "SEC.E012")
+
+    if s.SESSION_COOKIE_AGE > _SESSAO_MAXIMA:
+        erro("SESSION_COOKIE_AGE acima de 30 dias.", "SEC.E019")
+
+    validadores = {v.get("NAME", "").rsplit(".", 1)[-1]: v for v in getattr(s, "AUTH_PASSWORD_VALIDATORS", [])}
+    minimo = validadores.get("MinimumLengthValidator", {}).get("OPTIONS", {}).get("min_length", 8)
+    if "MinimumLengthValidator" not in validadores or minimo < 10:
+        erro("Política de senha fraca: tamanho mínimo precisa ser 10 ou mais.", "SEC.E017")
+    if "CommonPasswordValidator" not in validadores:
+        erro("Política de senha fraca: senhas comuns (ex.: 123456) não estão bloqueadas.", "SEC.E017")
+
+    if getattr(s, "X_FRAME_OPTIONS", None) != "DENY":
+        erro("X_FRAME_OPTIONS precisa ser 'DENY' (o sistema não pode ser aberto dentro de outro site).", "SEC.E016")
+
+    mw = list(getattr(s, "MIDDLEWARE", []))
+    for caminho, id in _MW_OBRIGATORIOS.items():
+        if caminho not in mw:
+            erro(f"{caminho.rsplit('.', 1)[-1]} ausente de MIDDLEWARE.", id)
+
+    if s.AMBIENTE == "producao":
+        if s.DEBUG:
+            erro("DEBUG ligado em produção.", "SEC.E014")
+        if len(s.SECRET_KEY) < 50 or len(set(s.SECRET_KEY)) < 5 or s.SECRET_KEY.startswith("dev-inseguro"):
+            erro("SECRET_KEY de produção ausente, curta, repetitiva ou de desenvolvimento.", "SEC.E015")
+        if not s.ALLOWED_HOSTS or "*" in s.ALLOWED_HOSTS:
+            erro("ALLOWED_HOSTS de produção vazio ou com '*'.", "SEC.E020")
+        for nome in ("SESSION_COOKIE_SECURE", "CSRF_COOKIE_SECURE", "SECURE_SSL_REDIRECT"):
+            if not getattr(s, nome, False):
+                erro(f"{nome} desligado em produção.", "SEC.E013")
+        if getattr(s, "SECURE_HSTS_SECONDS", 0) < _HSTS_MINIMO:
+            erro("SECURE_HSTS_SECONDS abaixo de 1 ano em produção.", "SEC.E013")
+
+    return erros

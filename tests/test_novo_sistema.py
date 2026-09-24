@@ -87,7 +87,7 @@ def test_workflow_do_sistema_so_chama_o_portao_do_00(sistema):
 def test_claude_md_tem_as_regras(sistema):
     texto = (sistema / "CLAUDE.md").read_text()
     for trecho in ("ModeloSeguro", "@politica", ".para(request.user)", "@exige", "AdminSeguro",
-                   "SILENCED_SYSTEM_CHECKS", "como_sistema", __version__):
+                   "SILENCED_SYSTEM_CHECKS", "como_sistema", "self.consultar", __version__):
         assert trecho in texto
 
 

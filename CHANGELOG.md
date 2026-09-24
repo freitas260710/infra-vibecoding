@@ -1,5 +1,14 @@
 # Histórico de versões
 
+## 0.1.2
+
+Regras que consultam outras tabelas.
+
+- `self.consultar(Tabela)` dentro de uma política: lê outra tabela para decidir (ex.: "o usuário tem perfil de Atendimento?"). Só leitura, só enquanto a regra roda (fora dela, e se a consulta for guardada e usada depois, dá AcessoSemEscopo) e sem registro de auditoria a cada uso.
+- O escopo de uma política precisa devolver um filtro da própria tabela, feito a partir do qs recebido. Outra coisa dá erro.
+- CLAUDE.md dos sistemas novos ensina a usar `self.consultar` e proíbe `como_sistema` dentro de política.
+- 166 testes automáticos.
+
 ## 0.1.1
 
 Comando de criar sistema e portão para os sistemas.

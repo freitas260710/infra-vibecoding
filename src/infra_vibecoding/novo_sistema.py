@@ -404,6 +404,8 @@ siga todas: acertar de primeira é mais rápido do que esbarrar numa checagem.
   `escopo(usuario, qs)` diz quais registros o usuário vê. `pode(usuario, acao, obj)` diz o que ele pode fazer.
 - Ler dados: sempre `Tabela.objects.para(request.user)`. Nunca `.all()`, `.filter()` ou `.get()` direto.
 - Gravar: `Tabela.objects.criar(usuario, ...)`, `obj.salvar(usuario)`, `obj.excluir(usuario)`.
+- Dentro de uma política, para ler outra tabela (ex.: "o usuário tem perfil de Atendimento?"), use
+  `self.consultar(OutraTabela)`: só leitura e só dentro da regra. Nunca `como_sistema` dentro de política.
 - `como_sistema("motivo")` ignora as regras (igual ao "ignore privacy rules" do Bubble). Só usar com
   autorização explícita do Ed, com motivo claro. Fica registrado.
 - Proibido: SQL escrito à mão (`raw`, `connection.cursor`, `extra`).

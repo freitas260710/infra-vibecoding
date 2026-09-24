@@ -8,7 +8,7 @@ Todo sistema importa este pacote. O sistema escreve só o negócio (tabelas, reg
 
 Referência mínima: tudo que o Bubble.io entrega de segurança por padrão, com a diferença de que aqui o padrão é fechado.
 
-Status: versão 0.1.1, núcleo e comando de criar sistema. Ainda não usar em produção (faltam contas e login, arquivos, jobs, registros e o portão de deploy).
+Status: versão 0.1.2, núcleo, comando de criar sistema e regras que consultam outras tabelas. Ainda não usar em produção (faltam contas e login, arquivos, jobs, registros e o portão de deploy).
 
 ## O que o 00 faz hoje
 
@@ -27,7 +27,7 @@ Status: versão 0.1.1, núcleo e comando de criar sistema. Ainda não usar em pr
 Na pasta onde o sistema vai ficar:
 
 ```
-uvx --from "git+https://github.com/freitas260710/infra-vibecoding@v0.1.1" infra-vibecoding novo-sistema NOME
+uvx --from "git+https://github.com/freitas260710/infra-vibecoding@v0.1.2" infra-vibecoding novo-sistema NOME
 ```
 
 O sistema nasce com o 00 na mesma versão do comando (fixa no `pyproject.toml`), `settings.py` herdando as configurações de segurança, login obrigatório, admin num endereço próprio, `CLAUDE.md` com as regras para a IA e a verificação no GitHub chamando o portão do 00 (`.github/workflows/portao.yml`). Depois:
@@ -43,7 +43,7 @@ uv run pytest
 O comando acima já faz a instalação e a ligação. Para referência, a instalação numa versão fixa é:
 
 ```
-uv add "infra-vibecoding @ git+https://github.com/freitas260710/infra-vibecoding@v0.1.1"
+uv add "infra-vibecoding @ git+https://github.com/freitas260710/infra-vibecoding@v0.1.2"
 ```
 
 No `settings.py`, primeira linha:
@@ -73,6 +73,18 @@ class PoliticaPedido(Politica):
     def pode(self, usuario, acao, obj=None):
         return obj is not None and obj.dono_id == usuario.id
 ```
+
+Uma regra que consulta outra tabela para decidir (ex.: só vê os documentos dos setores a que tem acesso):
+
+```python
+@politica(Documento)
+class PoliticaDocumento(Politica):
+    def escopo(self, usuario, qs):
+        setores = self.consultar(AcessoSetor).filter(usuario=usuario).values("setor")
+        return qs.filter(setor__in=setores)
+```
+
+`self.consultar(...)` só funciona dentro de uma política, só lê e não gera registro a cada uso. Fora da regra, dá erro.
 
 Uma tela:
 

@@ -21,6 +21,16 @@ AÇÕES (US 1.3)
 - Gravação ignorando as regras: obj.salvar_como_sistema("motivo"), obj.excluir_como_sistema("motivo"),
   Model.objects.como_sistema("motivo").create(...) / .update(...) / .delete(). Exigem motivo e ficam registradas.
 - Sem permissão levanta SemPermissao, que o Django transforma em "403 sem permissão" nas telas.
+
+REGRAS QUE CONSULTAM OUTRAS TABELAS (US 2.3)
+- Dentro de uma política (escopo ou pode), self.consultar(OutraTabela) lê outra tabela para decidir.
+  Ex.: "o usuário tem perfil de Atendimento?" olhando a tabela de perfis.
+- Só funciona enquanto o 00 está rodando uma regra. Fora dela (tela, ação, script) levanta AcessoSemEscopo,
+  inclusive se a consulta for guardada e usada depois.
+- Só lê: criar, alterar ou excluir por ela levanta EscritaSemAutorizacao.
+- Não gera registro de auditoria a cada uso (a regra roda em todo pedido). O resultado da regra continua sendo
+  só "sim ou não" ou o filtro da própria tabela: o que ela consultou não sai dali.
+- escopo() precisa devolver um filtro da própria tabela, a partir do qs recebido. Outra coisa dá erro.
 """
 import logging
 from contextlib import contextmanager
@@ -34,6 +44,7 @@ log = logging.getLogger("infra_vibecoding.auditoria")
 _REGISTRO = {}
 _AUTORIZADOS = ContextVar("infra_vibecoding_autorizados", default=frozenset())
 _MODO_SISTEMA = ContextVar("infra_vibecoding_modo_sistema", default=False)
+_EM_REGRA = ContextVar("infra_vibecoding_em_regra", default=False)
 
 
 class AcessoSemEscopo(Exception):
@@ -64,6 +75,22 @@ class Politica:
         obj é o registro (ou None quando a pergunta é genérica, ex.: mostrar o botão "Novo").
         """
         return False
+
+    def consultar(self, model):
+        """Lê outra tabela de dentro da regra, só para decidir (o "Do a search for" dentro da privacy rule).
+
+        Só leitura, só enquanto a regra está rodando e sem registro de auditoria a cada uso.
+        """
+        if not _EM_REGRA.get():
+            raise AcessoSemEscopo(
+                f"consultar({getattr(model, '__name__', model)}) só funciona dentro de uma regra "
+                f"(escopo ou pode de uma política). Fora dela, use .para(usuario) ou .como_sistema('motivo')."
+            )
+        if not (isinstance(model, type) and issubclass(model, ModeloSeguro)):
+            return model._default_manager.all()
+        qs = model.objects.all()
+        qs._escopo = "regra"
+        return qs
 
 
 def politica(model):
@@ -98,7 +125,8 @@ def pode(usuario, acao, obj_ou_model):
         return False
     if not usuario.is_authenticated and not pol.anonimo:
         return False
-    return bool(pol.pode(usuario, acao, obj))
+    with _rodando_regra():
+        return bool(pol.pode(usuario, acao, obj))
 
 
 def exigir(usuario, acao, obj_ou_model):
@@ -130,6 +158,15 @@ def _modo_sistema():
         _MODO_SISTEMA.reset(token)
 
 
+@contextmanager
+def _rodando_regra():
+    token = _EM_REGRA.set(True)
+    try:
+        yield
+    finally:
+        _EM_REGRA.reset(token)
+
+
 def _autorizado(obj):
     return _MODO_SISTEMA.get() or id(obj) in _AUTORIZADOS.get()
 
@@ -137,7 +174,8 @@ def _autorizado(obj):
 # Consultas
 
 class QuerySetSeguro(models.QuerySet):
-    # None = sem escopo, "usuario" = via para(usuario), "sistema" = via como_sistema(motivo)
+    # None = sem escopo, "usuario" = via para(usuario), "sistema" = via como_sistema(motivo),
+    # "regra" = via Politica.consultar(Model), só leitura e só enquanto a regra roda
     _escopo = None
 
     def _clone(self):
@@ -151,6 +189,11 @@ class QuerySetSeguro(models.QuerySet):
                 f"{self.model.__name__}: leitura sem dizer para quem. "
                 f"Use {self.model.__name__}.objects.para(usuario) ou "
                 f".como_sistema('motivo')."
+            )
+        if self._escopo == "regra" and not _EM_REGRA.get():
+            raise AcessoSemEscopo(
+                f"{self.model.__name__}: consulta de regra usada fora da regra. "
+                f"self.consultar(...) só vale enquanto a política está rodando."
             )
 
     def _exigir_sistema(self, operacao):
@@ -170,7 +213,19 @@ class QuerySetSeguro(models.QuerySet):
             return qs.none()
         if not usuario.is_authenticated and not pol.anonimo:
             return qs.none()
-        return pol.escopo(usuario, qs)
+        with _rodando_regra():
+            resultado = pol.escopo(usuario, qs)
+        if (
+            not isinstance(resultado, QuerySetSeguro)
+            or resultado.model is not self.model
+            or resultado._escopo != "usuario"
+        ):
+            raise TypeError(
+                f"A política de {self.model.__name__} precisa devolver, no escopo, um filtro da própria tabela "
+                f"feito a partir do qs recebido (ex.: return qs.filter(...)). Nada de devolver outra tabela "
+                f"ou uma consulta de regra."
+            )
+        return resultado
 
     def como_sistema(self, motivo):
         _exigir_motivo(motivo)

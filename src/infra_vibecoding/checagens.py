@@ -227,3 +227,22 @@ def sec07_endereco_do_admin(app_configs=None, **kwargs):
                 id="SEC.E072",
             )]
     return []
+
+
+# Checagens silenciadas (US 2.1)
+
+def conferir_checagens_silenciadas(silenciadas):
+    """Impede silenciar checagens do 00. Roda ao ligar, antes das checagens.
+
+    Não é uma checagem comum de propósito: uma checagem comum também poderia ser silenciada.
+    Aqui o sistema simplesmente não liga.
+    """
+    from django.core.exceptions import ImproperlyConfigured
+
+    proibidas = sorted(c for c in silenciadas if str(c).strip().upper().startswith("SEC"))
+    if proibidas:
+        raise ImproperlyConfigured(
+            "SILENCED_SYSTEM_CHECKS tenta silenciar checagens do Infra Vibecoding: "
+            + ", ".join(proibidas)
+            + ". Checagens SEC.* não podem ser silenciadas. Corrija a causa do erro."
+        )

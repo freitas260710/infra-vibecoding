@@ -1,6 +1,6 @@
 [project]
 name = "infra-vibecoding"
-version = "0.1.0"
+version = "0.1.1"
 description = "Infra Vibecoding: motor de segurança obrigatório para sistemas Django"
 readme = "README.md"
 authors = [{ name = "Ed Freitas", email = "331106550+freitas260710@users.noreply.github.com" }]
@@ -9,6 +9,9 @@ dependencies = [
     "argon2-cffi>=25.1.0",
     "django>=5.2,<5.3",
 ]
+
+[project.scripts]
+infra-vibecoding = "infra_vibecoding.cli:main"
 
 [build-system]
 requires = ["uv_build>=0.12.18,<0.13.0"]

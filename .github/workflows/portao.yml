@@ -1,0 +1,57 @@
+# Portão do Infra Vibecoding para os sistemas.
+# Mora no 00 e não roda sozinho: cada sistema chama este portão no próprio verificacao.yml, numa versão fixa:
+#
+#   jobs:
+#     portao:
+#       uses: freitas260710/infra-vibecoding/.github/workflows/portao.yml@vX.Y.Z
+#
+# Roda sobre o código do sistema que chamou. Se qualquer passo falhar, fica vermelho.
+name: portao
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  portao:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Baixar o código do sistema (com o histórico inteiro, para a busca de segredos)
+        uses: actions/checkout@v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Instalar o uv
+        uses: astral-sh/setup-uv@v10.2.0
+
+      - name: Instalar Python e dependências exatamente como no uv.lock
+        run: uv sync --locked
+
+      - name: Testes do sistema
+        run: uv run pytest -v
+
+      - name: Checagens do 00 em modo desenvolvimento
+        run: uv run python manage.py check --fail-level WARNING
+
+      - name: Checagens do 00 e do Django em modo produção
+        env:
+          AMBIENTE: producao
+          ALLOWED_HOSTS: verificacao.local
+        run: |
+          export SECRET_KEY="$(python3 -c 'import secrets; print(secrets.token_urlsafe(64))')"
+          uv run python manage.py check --deploy --fail-level WARNING
+
+      - name: Nenhuma mudança de tabela sem migração
+        run: uv run python manage.py makemigrations --check --dry-run
+
+      - name: Dependências sem vulnerabilidade conhecida
+        run: |
+          uv export --format requirements-txt --no-hashes --no-emit-project > /tmp/requisitos.txt
+          uvx pip-audit -r /tmp/requisitos.txt --no-deps --disable-pip
+
+      - name: Nenhum segredo no código nem no histórico
+        uses: gitleaks/gitleaks-action@v3.0.0
+        env:
+          GITHUB_TOKEN: ${{ github.token }}

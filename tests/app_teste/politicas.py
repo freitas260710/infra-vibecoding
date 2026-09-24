@@ -1,6 +1,6 @@
 from infra_vibecoding.dados import Politica, politica
 
-from .models import Pedido, Rascunho
+from .models import ItemPedido, Pedido, Rascunho
 
 
 @politica(Pedido)
@@ -23,3 +23,9 @@ class PoliticaPedido(Politica):
 @politica(Rascunho)
 class PoliticaRascunho(Politica):
     pass
+
+
+@politica(ItemPedido)
+class PoliticaItemPedido(Politica):
+    def escopo(self, usuario, qs):
+        return qs.filter(pedido__dono=usuario)

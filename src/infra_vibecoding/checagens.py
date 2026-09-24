@@ -183,3 +183,47 @@ def sec01_configuracoes_de_seguranca(app_configs=None, **kwargs):
             erro("SECURE_HSTS_SECONDS abaixo de 1 ano em produção.", "SEC.E013")
 
     return erros
+
+
+# Tela de banco / admin (US 1.6)
+
+def verificar_admin(site=None):
+    """Toda tabela do sistema registrada no admin precisa usar AdminSeguro."""
+    from django.contrib import admin as dj_admin
+
+    from .admin import AdminSeguro
+
+    site = site or dj_admin.site
+    erros = []
+    for model, model_admin in site._registry.items():
+        if issubclass(model, ModeloSeguro) and not isinstance(model_admin, AdminSeguro):
+            erros.append(Error(
+                f"{model._meta.label} está no admin sem AdminSeguro.",
+                hint="Registre com admin.site.register(Model, AdminSeguro) de infra_vibecoding.admin.",
+                obj=model,
+                id="SEC.E071",
+            ))
+    return erros
+
+
+@register(Tags.admin)
+def sec07_admin_protegido(app_configs=None, **kwargs):
+    if not apps.is_installed("django.contrib.admin"):
+        return []
+    return verificar_admin()
+
+
+@register(Tags.urls)
+def sec07_endereco_do_admin(app_configs=None, **kwargs):
+    from django.urls import URLResolver, get_resolver
+
+    if not getattr(settings, "ROOT_URLCONF", None):
+        return []
+    for p in get_resolver().url_patterns:
+        if isinstance(p, URLResolver) and p.namespace == "admin" and str(p.pattern) in ("admin/", "admin"):
+            return [Error(
+                "O admin está no endereço padrão 'admin/', que robôs testam o tempo todo.",
+                hint="Troque por um endereço próprio, ex.: path('gestao-interna/', admin.site.urls).",
+                id="SEC.E072",
+            )]
+    return []

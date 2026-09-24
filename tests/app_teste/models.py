@@ -14,3 +14,8 @@ class Rascunho(ModeloSeguro):
     """Tabela com política vazia: ninguém vê nada."""
 
     texto = models.CharField(max_length=100)
+
+
+class ItemPedido(ModeloSeguro):
+    pedido = models.ForeignKey(Pedido, on_delete=models.CASCADE, related_name="itens")
+    descricao = models.CharField(max_length=100)

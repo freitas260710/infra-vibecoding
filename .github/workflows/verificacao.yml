@@ -1,0 +1,59 @@
+# Verificação automática do Infra Vibecoding.
+# Roda a cada envio para o GitHub e a cada pull request. Se qualquer passo falhar, fica vermelho.
+name: verificacao
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  verificacao:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Baixar o código (com o histórico inteiro, para a busca de segredos)
+        uses: actions/checkout@v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Instalar o uv
+        uses: astral-sh/setup-uv@v10.2.0
+
+      - name: Instalar Python e dependências exatamente como no uv.lock
+        run: uv sync --locked
+
+      - name: Testes
+        run: uv run pytest -v
+
+      - name: Checagens do 00 em modo desenvolvimento
+        env:
+          DJANGO_SETTINGS_MODULE: tests.settings
+        run: uv run python -m django check --fail-level WARNING
+
+      - name: Checagens do 00 e do Django em modo produção
+        env:
+          DJANGO_SETTINGS_MODULE: tests.settings
+          AMBIENTE: producao
+          ALLOWED_HOSTS: verificacao.local
+        run: |
+          export SECRET_KEY="$(python3 -c 'import secrets; print(secrets.token_urlsafe(64))')"
+          uv run python -m django check --deploy --fail-level WARNING
+
+      - name: Dependências sem vulnerabilidade conhecida
+        run: |
+          uv export --format requirements-txt --no-hashes --no-emit-project > /tmp/requisitos.txt
+          uvx pip-audit -r /tmp/requisitos.txt --no-deps --disable-pip
+
+      - name: Nenhum e-mail pessoal no repositório
+        run: |
+          if grep -rnI "gmail" . --exclude-dir=.git --exclude-dir=.venv --exclude=verificacao.yml; then
+            echo "Encontrado e-mail pessoal no repositório."
+            exit 1
+          fi
+
+      - name: Nenhum segredo no código nem no histórico
+        uses: gitleaks/gitleaks-action@v3.0.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

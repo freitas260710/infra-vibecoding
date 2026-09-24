@@ -1,0 +1,12 @@
+[project]
+name = "infra-vibecoding"
+version = "0.0.1"
+description = "Infra Vibecoding: motor de segurança obrigatório para sistemas Django"
+readme = "README.md"
+authors = [{ name = "Ed Freitas", email = "331106550+freitas260710@users.noreply.github.com" }]
+requires-python = ">=3.13"
+dependencies = []
+
+[build-system]
+requires = ["uv_build>=0.12.18,<0.13.0"]
+build-backend = "uv_build"

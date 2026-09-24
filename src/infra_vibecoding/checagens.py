@@ -58,3 +58,60 @@ def sec02_toda_tabela_tem_politica(app_configs=None, **kwargs):
             for model in cfg.get_models():
                 erros.extend(verificar_modelo(model))
     return erros
+
+
+# Telas (US 1.4)
+
+NAMESPACES_IGNORADOS = {"admin"}  # o admin tem proteção própria (endurecida na US 1.7)
+_MW_AUTH = "django.contrib.auth.middleware.AuthenticationMiddleware"
+_MW_LOGIN = "django.contrib.auth.middleware.LoginRequiredMiddleware"
+
+
+def _percorrer_rotas(padroes, prefixo="", namespace=None):
+    from django.urls import URLPattern, URLResolver
+
+    for p in padroes:
+        if isinstance(p, URLResolver):
+            ns = p.namespace or namespace
+            if ns in NAMESPACES_IGNORADOS:
+                continue
+            yield from _percorrer_rotas(p.url_patterns, prefixo + str(p.pattern), ns)
+        elif isinstance(p, URLPattern):
+            yield prefixo + str(p.pattern), p.callback
+
+
+@register(Tags.urls)
+def sec04_toda_tela_declara_acesso(app_configs=None, **kwargs):
+    from django.urls import get_resolver
+
+    from .telas import acesso_declarado
+
+    if not getattr(settings, "ROOT_URLCONF", None):
+        return []
+    erros = []
+    for rota, view in _percorrer_rotas(get_resolver().url_patterns):
+        if acesso_declarado(view) is None:
+            nome = getattr(view, "__name__", repr(view))
+            erros.append(Error(
+                f"Tela '/{rota}' ({nome}) não declara quem pode abrir.",
+                hint="Use @publica, @logado ou @exige(acao, Model) de infra_vibecoding.telas.",
+                id="SEC.E041",
+            ))
+    return erros
+
+
+@register(Tags.security)
+def sec06_login_obrigatorio_por_padrao(app_configs=None, **kwargs):
+    mw = list(getattr(settings, "MIDDLEWARE", []))
+    if _MW_LOGIN not in mw:
+        return [Error(
+            "LoginRequiredMiddleware ausente: as telas ficariam abertas por padrão.",
+            hint=f"Inclua '{_MW_LOGIN}' em MIDDLEWARE, logo depois do AuthenticationMiddleware.",
+            id="SEC.E061",
+        )]
+    if _MW_AUTH not in mw or mw.index(_MW_LOGIN) < mw.index(_MW_AUTH):
+        return [Error(
+            "LoginRequiredMiddleware precisa vir depois do AuthenticationMiddleware.",
+            id="SEC.E062",
+        )]
+    return []

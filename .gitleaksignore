@@ -1,0 +1,7 @@
+# Alarmes falsos do gitleaks já conferidos, marcados um a um (commit, arquivo, regra e linha).
+# Qualquer ocorrência nova, em qualquer outro lugar, continua sendo barrada.
+#
+# Commit 2d5acf7 (US 2.1): senha de teste escrita no modelo de testes do sistema novo.
+# Não era segredo real. Corrigido no commit seguinte (a senha passou a ser sorteada no teste).
+2d5acf7e4775864e9811ea77773a976d2eb73cfb:src/infra_vibecoding/novo_sistema.py:generic-api-key:325
+2d5acf7e4775864e9811ea77773a976d2eb73cfb:src/infra_vibecoding/novo_sistema.py:generic-api-key:334

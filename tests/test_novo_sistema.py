@@ -91,6 +91,12 @@ def test_claude_md_tem_as_regras(sistema):
         assert trecho in texto
 
 
+def test_nenhuma_senha_escrita_nos_arquivos_gerados():
+    for caminho, texto in arquivos_do_sistema("sem-senha").items():
+        assert 'password="' not in texto, caminho
+        assert "password='" not in texto, caminho
+
+
 def test_nao_sobrescreve_pasta_existente(tmp_path):
     criar_sistema("repetido", tmp_path)
     with pytest.raises(FileExistsError):

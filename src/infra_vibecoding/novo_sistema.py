@@ -290,10 +290,15 @@ _TESTS_INIT = '''
 
 _TESTS_BASE = '''
 """Testes da base do sistema: ele nasce dentro do 00 e com as travas ligadas."""
+import secrets
+
 import pytest
 from django.contrib.auth import get_user_model
 from django.core.management import call_command
 from django.test import Client
+
+# Senha de teste sorteada a cada execução: nenhuma senha fica escrita no código.
+SENHA = secrets.token_urlsafe(16)
 
 
 def test_checagens_do_00_passam():
@@ -322,7 +327,7 @@ def test_tela_de_entrar_abre_sem_login():
 
 @pytest.mark.django_db
 def test_logado_ve_a_inicial():
-    usuario = get_user_model().objects.create_user("ana", password="uma-senha-bem-longa-123")
+    usuario = get_user_model().objects.create_user("ana", password=SENHA)
     cliente = Client()
     cliente.force_login(usuario)
     assert cliente.get("/").status_code == 200
@@ -331,7 +336,7 @@ def test_logado_ve_a_inicial():
 @pytest.mark.django_db
 def test_admin_nao_fica_no_endereco_padrao():
     cliente = Client()
-    cliente.force_login(get_user_model().objects.create_superuser("root", password="uma-senha-bem-longa-123"))
+    cliente.force_login(get_user_model().objects.create_superuser("root", password=SENHA))
     assert cliente.get("/admin/").status_code == 404
 '''
 

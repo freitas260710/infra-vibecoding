@@ -193,6 +193,10 @@ def verificar_admin(site=None):
 
     from .admin import AdminSeguro
 
+    from django.contrib.admin.utils import flatten_fieldsets
+
+    from .admin import AdminUsuarioSeguro
+
     site = site or dj_admin.site
     erros = []
     for model, model_admin in site._registry.items():
@@ -203,7 +207,22 @@ def verificar_admin(site=None):
                 obj=model,
                 id="SEC.E071",
             ))
+        if isinstance(model_admin, AdminUsuarioSeguro):
+            campos = set(flatten_fieldsets(getattr(model_admin, "add_fieldsets", ()) or ()))
+            if campos & _CAMPOS_DE_SENHA_NA_CRIACAO:
+                erros.append(Error(
+                    f"A tela de banco de {model._meta.label} cria usuário com senha definida por outra pessoa.",
+                    hint=(
+                        "Tire password1, password2 e usable_password do add_fieldsets. O usuário nasce sem senha "
+                        "e define a própria senha pelo link de primeiro acesso (US 3.1)."
+                    ),
+                    obj=model,
+                    id="SEC.E073",
+                ))
     return erros
+
+
+_CAMPOS_DE_SENHA_NA_CRIACAO = {"password", "password1", "password2", "usable_password"}
 
 
 @register(Tags.admin)
@@ -283,3 +302,39 @@ def sec08_usuario_seguro(app_configs=None, **kwargs):
             id="SEC.E082",
         ))
     return erros
+
+
+# Telas de login do 00 (US 3.1)
+
+_ROTAS_DE_LOGIN = ("sair", "primeiro_acesso", "esqueci_a_senha", "trocar_senha")
+
+
+@register(Tags.urls)
+def sec08_telas_de_login_do_00(app_configs=None, **kwargs):
+    """O login do sistema é o do 00: entrar, primeiro acesso, esqueci a senha e trocar a senha."""
+    from django.shortcuts import resolve_url
+    from django.urls import NoReverseMatch, Resolver404, resolve, reverse
+
+    from .login.views import Entrar
+
+    if not getattr(settings, "ROOT_URLCONF", None):
+        return []
+    try:
+        tela = resolve(resolve_url(settings.LOGIN_URL)).func
+        ok = getattr(tela, "view_class", None) is Entrar or (
+            isinstance(getattr(tela, "view_class", None), type) and issubclass(tela.view_class, Entrar)
+        )
+        for nome in _ROTAS_DE_LOGIN:
+            reverse(nome)
+    except (NoReverseMatch, Resolver404):
+        ok = False
+    if ok:
+        return []
+    return [Error(
+        "O sistema não usa as telas de login do 00 (entrar, sair, primeiro acesso, esqueci a senha).",
+        hint=(
+            "Inclua path(\"\", include(\"infra_vibecoding.login.urls\")) no config/urls.py, apague as telas de "
+            "entrar e sair próprias e não redefina LOGIN_URL (vem do 00 como 'entrar')."
+        ),
+        id="SEC.E083",
+    )]

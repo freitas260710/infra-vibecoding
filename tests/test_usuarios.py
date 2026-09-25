@@ -152,24 +152,26 @@ def test_admin_lista_usuarios(client, chefe, ana):
     assert "ana@exemplo.com" in r.content.decode()
 
 
-def test_admin_cria_usuario_com_senha(client, chefe, caplog):
+def test_admin_cria_usuario_sem_senha_e_manda_o_link(client, chefe, caplog, mailoutbox):
     client.force_login(chefe)
     with caplog.at_level(logging.INFO, logger="infra_vibecoding.auditoria"):
         r = client.post(ADMIN_USUARIOS + "add/", {
-            "email": "Novo@Exemplo.com", "usable_password": "true",
-            "password1": SENHA, "password2": SENHA,
+            "email": "Novo@Exemplo.com", "nome": "Novo",
+            # tentativa de mandar senha junto: ignorada, o formulário não tem campo de senha
+            "usable_password": "true", "password1": SENHA, "password2": SENHA,
         })
     assert r.status_code == 302, r.content.decode()[:2000]
     novo = Usuario._base_manager.get(email="novo@exemplo.com")
-    assert novo.check_password(SENHA)
+    assert not novo.has_usable_password()
+    assert not novo.check_password(SENHA)
     assert "admin: chefe@exemplo.com criou" in caplog.text
+    assert len(mailoutbox) == 1 and mailoutbox[0].to == ["novo@exemplo.com"]
+    assert "/primeiro-acesso/" in mailoutbox[0].body
 
 
 def test_admin_recusa_email_repetido_sem_quebrar(client, chefe, ana):
     client.force_login(chefe)
-    r = client.post(ADMIN_USUARIOS + "add/", {
-        "email": "ana@exemplo.com", "usable_password": "true", "password1": SENHA, "password2": SENHA,
-    })
+    r = client.post(ADMIN_USUARIOS + "add/", {"email": "ana@exemplo.com"})
     assert r.status_code == 200  # volta para o formulário com o erro
     assert Usuario._base_manager.filter(email="ana@exemplo.com").count() == 1
 

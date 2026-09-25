@@ -1,0 +1,16 @@
+{% extends "infra_vibecoding/login/base.html" %}
+{% block titulo %}Esqueci a senha{% endblock %}
+{% block conteudo %}
+  <h1>Esqueci a senha</h1>
+  {% if enviado %}
+    <p>Se esse e-mail tiver acesso, enviamos um link para definir uma nova senha. Confira a caixa de entrada e o spam.</p>
+  {% else %}
+    <p>Informe o seu e-mail. Enviaremos um link para você definir uma nova senha.</p>
+    <form method="post">
+      {% csrf_token %}
+      {{ form.as_p }}
+      <button type="submit">Enviar link</button>
+    </form>
+  {% endif %}
+  <p><a href="{% url 'entrar' %}">Voltar para entrar</a></p>
+{% endblock %}

@@ -1,0 +1,12 @@
+{% autoescape off %}Olá{% if usuario.nome %}, {{ usuario.nome }}{% endif %}.
+
+Um acesso ao {{ sistema }} foi criado para você com este e-mail.
+
+Para definir a sua senha e entrar, abra o link abaixo:
+
+{{ link }}
+
+O link vale uma vez só e vence em {{ horas }} horas. Se ele vencer, use "Primeiro acesso" na tela de entrar para receber outro.
+
+Se você não esperava este e-mail, pode ignorar.
+{% endautoescape %}

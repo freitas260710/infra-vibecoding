@@ -1,0 +1,10 @@
+{% autoescape off %}Olá{% if usuario.nome %}, {{ usuario.nome }}{% endif %}.
+
+Recebemos um pedido para definir uma nova senha no {{ sistema }}.
+
+Para definir a nova senha, abra o link abaixo:
+
+{{ link }}
+
+O link vale uma vez só e vence em {{ horas }} hora{{ horas|pluralize }}. Se você não fez esse pedido, ignore este e-mail: a sua senha continua a mesma.
+{% endautoescape %}

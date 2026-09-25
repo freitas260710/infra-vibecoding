@@ -1,0 +1,10 @@
+{% extends "infra_vibecoding/login/base.html" %}
+{% block titulo %}Trocar a senha{% endblock %}
+{% block conteudo %}
+  <h1>Trocar a senha</h1>
+  <form method="post">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <button type="submit">Trocar a senha</button>
+  </form>
+{% endblock %}

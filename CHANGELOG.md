@@ -1,5 +1,20 @@
 # Histórico de versões
 
+## 0.2.0
+
+Telas de login e primeiro acesso seguro (US 3.1).
+
+- Telas do 00 em `infra_vibecoding.login`: entrar, sair (só por formulário), primeiro acesso, esqueci a senha, trocar a senha e os links do e-mail. O sistema liga com `path("", include("infra_vibecoding.login.urls"))`. Visual trocável por template, lógica no 00.
+- Primeiro acesso seguro: usuário criado por outra pessoa nasce sem senha. A pessoa recebe um link por e-mail e define a própria senha. Link de uso único, com prazo (72 horas no convite, 1 hora na redefinição), que morre se o usuário for desativado ou trocar de e-mail. Link de convite não serve como redefinição e vice-versa.
+- Telas de primeiro acesso e esqueci a senha respondem sempre a mesma frase (não revelam quais e-mails existem) e têm limite de pedidos (3 por e-mail e 10 por endereço por hora).
+- Abrir o link confirma o e-mail (novo campo `email_confirmado_em` no `UsuarioSeguro`: os sistemas precisam de uma migração). E-mail de aviso sempre que a senha é definida ou trocada. Trocar a senha derruba as outras sessões.
+- `convidar(autor, request, email, ...)`: abre acesso para um colega conferindo a regra "criar" da tabela de usuário.
+- Tela de banco: criar usuário só com e-mail e nome (sem senha), com envio automático do link, e ação "Enviar link de acesso por e-mail".
+- Configurações: `LOGIN_URL`, `LOGIN_REDIRECT_URL`, `LOGOUT_REDIRECT_URL` e `NOME_DO_SISTEMA` vêm do 00. No Mac, os e-mails aparecem no terminal.
+- Checagens SEC.E083 (o sistema precisa usar as telas de login do 00) e SEC.E073 (a tela de banco não pode criar usuário com senha definida por outra pessoa).
+- O comando novo-sistema já liga as telas de login do 00 e ensina no CLAUDE.md a nunca criar senha para outra pessoa.
+- 240 testes automáticos.
+
 ## 0.1.4
 
 Correção na tela de banco.

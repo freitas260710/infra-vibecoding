@@ -1,0 +1,16 @@
+{% extends "infra_vibecoding/login/base.html" %}
+{% block titulo %}Defina sua senha{% endblock %}
+{% block conteudo %}
+  {% if validlink %}
+    <h1>{% if tipo == "convite" %}Defina sua senha{% else %}Nova senha{% endif %}</h1>
+    <form method="post">
+      {% csrf_token %}
+      {{ form.as_p }}
+      <button type="submit">Salvar senha</button>
+    </form>
+  {% else %}
+    <h1>Link inválido ou vencido</h1>
+    <p>Este link já foi usado ou passou do prazo. Peça um novo:</p>
+    <p><a href="{% if tipo == "convite" %}{% url 'primeiro_acesso' %}{% else %}{% url 'esqueci_a_senha' %}{% endif %}">Enviar um novo link</a></p>
+  {% endif %}
+{% endblock %}

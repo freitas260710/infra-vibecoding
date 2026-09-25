@@ -1,0 +1,16 @@
+{% comment %}
+Base das telas de login do Infra Vibecoding. Para usar o visual do sistema, crie no sistema o arquivo
+templates/infra_vibecoding/login/base.html com {% extends "base.html" %} e um bloco "conteudo".
+Os formulários precisam manter os mesmos campos e o {% csrf_token %}.
+{% endcomment %}<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block titulo %}Entrar{% endblock %}</title>
+</head>
+<body>
+  {% if messages %}{% for m in messages %}<p>{{ m }}</p>{% endfor %}{% endif %}
+  {% block conteudo %}{% endblock %}
+</body>
+</html>

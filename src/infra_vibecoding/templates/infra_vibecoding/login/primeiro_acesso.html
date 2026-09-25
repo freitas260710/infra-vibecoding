@@ -1,0 +1,16 @@
+{% extends "infra_vibecoding/login/base.html" %}
+{% block titulo %}Primeiro acesso{% endblock %}
+{% block conteudo %}
+  <h1>Primeiro acesso</h1>
+  {% if enviado %}
+    <p>Se esse e-mail tiver um acesso esperando a primeira senha, enviamos um link para definir a senha. Confira a caixa de entrada e o spam.</p>
+  {% else %}
+    <p>Informe o seu e-mail. Enviaremos um link para você definir a sua senha.</p>
+    <form method="post">
+      {% csrf_token %}
+      {{ form.as_p }}
+      <button type="submit">Enviar link</button>
+    </form>
+  {% endif %}
+  <p><a href="{% url 'entrar' %}">Voltar para entrar</a></p>
+{% endblock %}

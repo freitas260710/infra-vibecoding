@@ -22,12 +22,16 @@ A tabela de usuário (US 2.4) usa AdminUsuarioSeguro, que também troca a senha 
 
     from infra_vibecoding.admin import AdminUsuarioSeguro
     admin.site.register(Usuario, AdminUsuarioSeguro)
+
+Criar usuário pela tela de banco (US 3.1): só e-mail e nome. O usuário nasce sem senha e recebe o link de
+primeiro acesso por e-mail. A ação "Enviar link de acesso por e-mail" reenvia o link para os selecionados.
 """
 from functools import wraps
 
-from django.contrib import admin
+from django import forms
+from django.contrib import admin, messages
 from django.contrib.auth.admin import UserAdmin
-from django.contrib.auth.forms import AdminPasswordChangeForm, AdminUserCreationForm, UserChangeForm
+from django.contrib.auth.forms import AdminPasswordChangeForm, UserChangeForm
 
 from .dados import ModeloSeguro, _leitura_da_tela_de_banco, log
 
@@ -115,10 +119,19 @@ class InlineEmpilhadoSeguro(_InlineSeguroBase, admin.StackedInline):
 # Tabela de usuário (US 2.4)
 
 def _formulario_criacao(modelo):
-    class FormularioCriacao(AdminUserCreationForm):
-        class Meta(AdminUserCreationForm.Meta):
+    class FormularioCriacao(forms.ModelForm):
+        """Criação sem senha: a pessoa define a própria senha pelo link do e-mail (US 3.1)."""
+
+        class Meta:
             model = modelo
-            fields = ("email",)
+            fields = ("email", "nome")
+
+        def save(self, commit=True):
+            usuario = super().save(commit=False)
+            usuario.set_unusable_password()
+            if commit:
+                usuario.salvar_como_sistema("admin: criação de usuário sem senha")
+            return usuario
 
     return FormularioCriacao
 
@@ -152,16 +165,37 @@ class AdminUsuarioSeguro(AdminSeguro, UserAdmin):
     list_display = ("email", "nome", "is_staff", "is_active")
     list_filter = ("is_staff", "is_superuser", "is_active")
     search_fields = ("email", "nome")
-    readonly_fields = ("last_login", "date_joined")
+    readonly_fields = ("last_login", "date_joined", "email_confirmado_em")
     fieldsets = (
         (None, {"fields": ("email", "password")}),
         ("Dados", {"fields": ("nome",)}),
         ("Permissões", {"fields": ("is_active", "is_staff", "is_superuser", "groups", "user_permissions")}),
-        ("Datas", {"fields": ("last_login", "date_joined")}),
+        ("Datas", {"fields": ("last_login", "date_joined", "email_confirmado_em")}),
     )
     add_fieldsets = (
-        (None, {"classes": ("wide",), "fields": ("email", "usable_password", "password1", "password2")}),
+        (None, {
+            "classes": ("wide",),
+            "fields": ("email", "nome"),
+            "description": "O usuário nasce sem senha e recebe por e-mail o link para definir a própria senha.",
+        }),
     )
+    actions = ["enviar_link_de_acesso"]
+
+    def save_model(self, request, obj, form, change):
+        super().save_model(request, obj, form, change)
+        if not change:
+            from .login import enviar_link_de_senha
+
+            enviar_link_de_senha(request, obj)
+            self.message_user(request, f"Link de primeiro acesso enviado para {obj.email}.", messages.SUCCESS)
+
+    @admin.action(description="Enviar link de acesso por e-mail")
+    def enviar_link_de_acesso(self, request, queryset):
+        from .login import enviar_link_de_senha
+
+        enviados = [u.email for u in queryset if enviar_link_de_senha(request, u)]
+        log.info("%s", _motivo(request, f"enviou link de acesso para {', '.join(enviados) or 'ninguém'}"))
+        self.message_user(request, f"Link enviado para {len(enviados)} usuário(s) ativo(s).", messages.SUCCESS)
 
     def get_form(self, request, obj=None, **kwargs):
         if "form" not in kwargs:

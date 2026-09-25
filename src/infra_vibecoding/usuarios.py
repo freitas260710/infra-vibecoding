@@ -20,6 +20,9 @@ O que muda em relação ao usuário padrão do Django:
 - Só o login busca alguém pelo e-mail exato (get_by_natural_key), e só o backend do 00 carrega o usuário da
   sessão a cada pedido (infra_vibecoding.autenticacao.BackendSeguro).
 - Criar usuário: Usuario.objects.create_user(email, senha) e create_superuser(email, senha). Ficam registrados.
+- Usuário criado sem senha nasce com a senha travada (ninguém entra). A pessoa define a própria senha pelo link
+  de primeiro acesso enviado por e-mail (US 3.1, infra_vibecoding.login.convidar).
+- email_confirmado_em: preenchido quando a pessoa abre um link recebido no e-mail (prova de que o e-mail é dela).
 - Gravações liberadas sem dizer quem: só a data do último login (feita pelo próprio login) e a troca do método
   de guardar a senha durante a conferência da senha. Todo o resto usa salvar(usuario) ou salvar_como_sistema.
 """
@@ -85,6 +88,7 @@ class UsuarioSeguro(ModeloSeguro, AbstractBaseUser, PermissionsMixin):
     is_active = models.BooleanField("ativo", default=True)
     is_staff = models.BooleanField("acessa a tela de banco", default=False)
     date_joined = models.DateTimeField("criado em", default=timezone.now)
+    email_confirmado_em = models.DateTimeField("e-mail confirmado em", null=True, blank=True)
 
     objects = GerenciadorUsuarios()
 
@@ -117,6 +121,9 @@ class UsuarioSeguro(ModeloSeguro, AbstractBaseUser, PermissionsMixin):
 
     def save(self, *args, **kwargs):
         self.email = normalizar_email(self.email)
+        if self._state.adding and not self.password:
+            # Nasce sem senha: senha travada. Só entra depois de definir pelo link do e-mail (US 3.1).
+            self.set_unusable_password()
         campos = kwargs.get("update_fields")
         if campos is not None and set(campos) <= _GRAVACOES_DO_LOGIN and not self._state.adding:
             with _autorizar(self):

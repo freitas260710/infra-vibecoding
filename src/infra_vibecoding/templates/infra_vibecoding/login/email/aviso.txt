@@ -1,0 +1,8 @@
+{% autoescape off %}Olá{% if usuario.nome %}, {{ usuario.nome }}{% endif %}.
+
+A sua senha do {{ sistema }} foi {% if primeira_vez %}definida{% else %}trocada{% endif %} em {{ quando|date:"d/m/Y" }} às {{ quando|time:"H:i" }}.
+
+Se foi você, não precisa fazer nada.
+
+Se não foi você, use "Esqueci a senha" na tela de entrar para definir uma nova senha e avise o administrador do sistema.
+{% endautoescape %}

@@ -66,5 +66,7 @@ class PoliticaUsuario(Politica):
         return qs.filter(pk=usuario.pk)
 
     def pode(self, usuario, acao, obj=None):
+        if acao == "criar":  # US 3.1: só administrador abre acesso para colegas
+            return usuario.is_staff
         return acao == "editar" and obj is not None and obj.pk == usuario.pk
 

@@ -7,6 +7,6 @@ from infra_vibecoding.configuracoes import INSTALLED_APPS
 BASE_DIR = Path(__file__).resolve().parent
 INSTALLED_APPS = INSTALLED_APPS + ["tests.app_teste"]
 ROOT_URLCONF = "tests.urls"
-LOGIN_URL = "/entrar/"
+NOME_DO_SISTEMA = "Sistema de Teste"
 AUTH_USER_MODEL = "app_teste.UsuarioTeste"
 DATABASES = {"default": {"ENGINE": "django.db.backends.sqlite3", "NAME": ":memory:"}}

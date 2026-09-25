@@ -135,7 +135,7 @@ def test_sistema_gerado_sem_migracao_pendente(sistema):
 def test_testes_do_sistema_gerado_passam(sistema):
     r = rodar(sistema, "-m", "pytest", "-q", "-p", "no:cacheprovider")
     assert r.returncode == 0, r.stdout + r.stderr
-    assert "9 passed" in r.stdout
+    assert "10 passed" in r.stdout
 
 
 def test_tabela_sem_trava_no_sistema_gerado_nao_liga(tmp_path):

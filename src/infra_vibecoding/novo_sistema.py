@@ -6,7 +6,7 @@ Criação de um sistema novo já dentro do Infra Vibecoding.
 O sistema nasce com:
 - o 00 instalado na mesma versão do comando (versão fixa);
 - settings.py herdando as configurações de segurança do 00 (primeira linha);
-- login obrigatório, tela inicial e tela de entrar já declaradas;
+- login obrigatório, tela inicial declarada e as telas de login do 00 (entrar, primeiro acesso, esqueci a senha);
 - admin num endereço próprio (nunca 'admin/');
 - CLAUDE.md com as regras para a IA;
 - verificação automática no GitHub chamando o portão que mora no 00 (não é uma cópia).
@@ -188,9 +188,11 @@ DATABASES = {
     }
 }
 
-LOGIN_URL = "entrar"
+# Nome que aparece nos e-mails do sistema (primeiro acesso, redefinição de senha).
+NOME_DO_SISTEMA = "__NOME__"
+
+# Depois de entrar, vai para a tela inicial. Entrar e sair vêm do 00 (não redefinir LOGIN_URL).
 LOGIN_REDIRECT_URL = "inicio"
-LOGOUT_REDIRECT_URL = "entrar"
 
 STATIC_ROOT = BASE_DIR / "staticfiles"
 '''
@@ -198,24 +200,21 @@ STATIC_ROOT = BASE_DIR / "staticfiles"
 _URLS = '''
 """Endereços do sistema __NOME__. Toda tela precisa declarar quem pode abrir (SEC.E041)."""
 from django.contrib import admin
-from django.contrib.auth import views as auth_views
-from django.urls import path
+from django.urls import include, path
 
 from . import views
 
 urlpatterns = [
     # Tela de banco (admin), num endereço próprio. Nunca usar 'admin/' (SEC.E072).
     path("__ADMIN__/", admin.site.urls),
-    # Entrar e sair. Provisórias: as telas oficiais de conta chegam na etapa 3 do 00.
-    path("entrar/", auth_views.LoginView.as_view(), name="entrar"),
-    path("sair/", views.Sair.as_view(), name="sair"),
+    # Telas de login do 00: entrar, sair, primeiro acesso, esqueci a senha, trocar a senha (SEC.E083).
+    path("", include("infra_vibecoding.login.urls")),
     path("", views.inicio, name="inicio"),
 ]
 '''
 
 _VIEWS = '''
 """Telas básicas do sistema. Toda tela declara @publica, @logado ou @exige(acao, Model)."""
-from django.contrib.auth import views as auth_views
 from django.shortcuts import render
 
 from infra_vibecoding.telas import logado
@@ -224,11 +223,6 @@ from infra_vibecoding.telas import logado
 @logado
 def inicio(request):
     return render(request, "inicio.html")
-
-
-@logado
-class Sair(auth_views.LogoutView):
-    pass
 '''
 
 _WSGI = '''
@@ -268,22 +262,10 @@ _TPL_INICIO = '''
 {% block conteudo %}
   <h1>__NOME__</h1>
   <p>Olá, {{ request.user.get_username }}.</p>
+  <p><a href="{% url 'trocar_senha' %}">Trocar a senha</a></p>
   <form method="post" action="{% url 'sair' %}">
     {% csrf_token %}
     <button type="submit">Sair</button>
-  </form>
-{% endblock %}
-'''
-
-_TPL_LOGIN = '''
-{% extends "base.html" %}
-{% block titulo %}Entrar{% endblock %}
-{% block conteudo %}
-  <h1>Entrar</h1>
-  <form method="post">
-    {% csrf_token %}
-    {{ form.as_p }}
-    <button type="submit">Entrar</button>
   </form>
 {% endblock %}
 '''
@@ -343,6 +325,21 @@ def test_tela_de_entrar_com_email():
     resposta = cliente.post("/entrar/", {"username": "ana@exemplo.com", "password": SENHA})
     assert resposta.status_code == 302 and resposta["Location"] == "/"
     assert cliente.get("/").status_code == 200
+
+
+@pytest.mark.django_db
+def test_primeiro_acesso_pelo_link_do_email(mailoutbox):
+    import re
+
+    get_user_model().objects.create_user("novo@exemplo.com")  # nasce sem senha
+    cliente = Client()
+    assert not cliente.login(email="novo@exemplo.com", password=SENHA)
+    cliente.post("/primeiro-acesso/", {"email": "novo@exemplo.com"})
+    link = re.search(r"http://testserver(/primeiro-acesso/\\S+)", mailoutbox[0].body).group(1)
+    tela = cliente.get(link)
+    cliente.post(tela["Location"], {"new_password1": SENHA, "new_password2": SENHA})
+    assert cliente.get("/").status_code == 200
+    assert Client().login(email="novo@exemplo.com", password=SENHA)
 
 
 @pytest.mark.django_db
@@ -413,13 +410,17 @@ uv run python manage.py check
 
 ## Endereços
 
-- `/entrar/` e `/sair/`: provisórios, até as telas de conta do 00 (etapa 3).
+- `/entrar/`, `/sair/`, `/primeiro-acesso/`, `/esqueci-a-senha/` e `/trocar-senha/`: telas de login do 00.
 - `/__ADMIN__/`: tela de banco (admin). O login é pelo e-mail.
 
 ## Usuários
 
 A tabela de usuário é `contas.Usuario` (herda do 00). Para criar o primeiro administrador:
 `uv run python manage.py createsuperuser`.
+
+Os outros usuários nascem sem senha: quem cria o acesso (pela tela de banco ou por uma tela do sistema) não
+define senha nenhuma. A pessoa recebe um link por e-mail e define a própria senha. No Mac, o e-mail aparece no
+terminal onde o runserver está rodando.
 '''
 
 _CLAUDE = '''
@@ -448,7 +449,19 @@ siga todas: acertar de primeira é mais rápido do que esbarrar numa checagem.
   outras tabelas. Campos do sistema (ex.: empresa) entram em `contas/models.py`.
 - Nunca usar `django.contrib.auth.models.User`. Para se referir ao usuário: `settings.AUTH_USER_MODEL` em campos e
   `get_user_model()` no código. Ler usuários com `.para(request.user)`, como qualquer tabela.
-- Criar usuário: `Usuario.objects.create_user(email, senha)`. Nunca trocar `AUTH_USER_MODEL`.
+- Abrir acesso para alguém: `convidar(request.user, request, email=..., outros campos)` de
+  `infra_vibecoding.login`. Confere a regra "criar" da tabela de usuário, cria o usuário SEM senha e manda o link
+  de primeiro acesso por e-mail. Quem pode abrir acesso para quem é decisão do sistema, na política.
+- Nunca definir, sortear, mostrar ou mandar senha de outra pessoa. Nunca criar senha provisória. A pessoa define
+  a própria senha pelo link (primeiro acesso) ou por "Esqueci a senha".
+- Nunca trocar `AUTH_USER_MODEL`.
+
+## Login
+- Entrar, sair, primeiro acesso, esqueci a senha, trocar a senha e os links do e-mail são telas do 00, ligadas
+  em `config/urls.py` com `path("", include("infra_vibecoding.login.urls"))` (SEC.E083). Nunca criar telas de
+  login, senha ou link próprias. Não redefinir `LOGIN_URL`.
+- Para mudar só o visual: criar no sistema `templates/infra_vibecoding/login/<tela>.html` (entrar, primeiro_acesso,
+  esqueci_a_senha, definir_senha, trocar_senha, base), mantendo os campos do formulário e o `{% csrf_token %}`.
 
 ## Telas
 - Toda tela declara quem pode abrir, com `infra_vibecoding.telas`: `@publica`, `@logado` ou
@@ -604,6 +617,12 @@ class Migration(migrations.Migration):
                     ),
                 ),
                 (
+                    "email_confirmado_em",
+                    models.DateTimeField(
+                        blank=True, null=True, verbose_name="e-mail confirmado em"
+                    ),
+                ),
+                (
                     "groups",
                     models.ManyToManyField(
                         blank=True,
@@ -648,7 +667,6 @@ _MODELOS = {
     "config/asgi.py": _ASGI,
     "templates/base.html": _TPL_BASE,
     "templates/inicio.html": _TPL_INICIO,
-    "templates/registration/login.html": _TPL_LOGIN,
     "contas/__init__.py": _CONTAS_INIT,
     "contas/apps.py": _CONTAS_APPS,
     "contas/models.py": _CONTAS_MODELS,

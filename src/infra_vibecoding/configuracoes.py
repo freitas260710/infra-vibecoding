@@ -84,6 +84,17 @@ STATIC_URL = "static/"
 # Login: pelo backend do 00, que carrega o usuário sem abrir a tabela (a tabela de usuário tem trava).
 AUTHENTICATION_BACKENDS = ["infra_vibecoding.autenticacao.BackendSeguro"]
 
+# Telas de login do 00 (US 3.1). O sistema inclui: path("", include("infra_vibecoding.login.urls")).
+LOGIN_URL = "entrar"
+LOGIN_REDIRECT_URL = "/"
+LOGOUT_REDIRECT_URL = "entrar"
+NOME_DO_SISTEMA = ""  # aparece no assunto e no texto dos e-mails; o sistema preenche
+
+# E-mails: no Mac aparecem no terminal (nenhum e-mail sai de verdade). O provedor de e-mail do dev online e de
+# produção vem numa próxima versão do 00.
+if not PRODUCAO:
+    EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+
 # Senhas: guardadas com Argon2 (o método mais forte disponível), nunca a senha em si.
 PASSWORD_HASHERS = [
     "django.contrib.auth.hashers.Argon2PasswordHasher",

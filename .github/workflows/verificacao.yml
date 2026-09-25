@@ -37,6 +37,8 @@ jobs:
           DJANGO_SETTINGS_MODULE: tests.settings
           AMBIENTE: producao
           ALLOWED_HOSTS: verificacao.local
+          EMAIL_HOST: smtp.verificacao.local
+          EMAIL_REMETENTE: nao-responda@verificacao.local
         run: |
           export SECRET_KEY="$(python3 -c 'import secrets; print(secrets.token_urlsafe(64))')"
           uv run python -m django check --deploy --fail-level WARNING

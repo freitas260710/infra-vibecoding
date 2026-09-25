@@ -133,6 +133,24 @@ staticfiles/
 .pytest_cache/
 '''
 
+_ENV_EXEMPLO = '''
+# Modelo do arquivo .env deste sistema. Copie para um arquivo chamado .env (na mesma pasta) e preencha.
+# O .env fica fora do Git (.gitignore): chaves e senhas NUNCA vão para o código nem para o chat.
+# Sem provedor de e-mail, os e-mails aparecem no terminal do runserver.
+
+# Provedor de e-mail (dados SMTP da conta do sistema no provedor: Brevo, Mailjet, Resend...)
+EMAIL_HOST=
+EMAIL_PORT=587
+EMAIL_HOST_USER=
+EMAIL_HOST_PASSWORD=
+
+# Quem envia (endereço confirmado no provedor). Ex.: __NOME__ <nao-responda@seudominio.com.br>
+EMAIL_REMETENTE=
+
+# Caixa de teste: fora de produção, TODO e-mail vai só para ela (com o destinatário original no assunto)
+EMAIL_DE_TESTE=
+'''
+
 _MANAGE = '''
 #!/usr/bin/env python
 """Comandos do Django para este sistema (runserver, migrate, check...)."""
@@ -413,6 +431,12 @@ uv run python manage.py check
 - `/entrar/`, `/sair/`, `/primeiro-acesso/`, `/esqueci-a-senha/` e `/trocar-senha/`: telas de login do 00.
 - `/__ADMIN__/`: tela de banco (admin). O login é pelo e-mail.
 
+## E-mail
+
+Sem provedor, os e-mails (primeiro acesso, redefinição de senha) aparecem no terminal do runserver. Para mandar de
+verdade: copie `.env.exemplo` para `.env` e preencha com os dados SMTP do provedor, o remetente e a caixa de teste.
+Fora de produção, todo e-mail vai só para a caixa de teste. O `.env` nunca vai para o Git.
+
 ## Usuários
 
 A tabela de usuário é `contas.Usuario` (herda do 00). Para criar o primeiro administrador:
@@ -480,7 +504,9 @@ siga todas: acertar de primeira é mais rápido do que esbarrar numa checagem.
 - Não redefinir nem enfraquecer nenhum item de segurança vindo do 00 (senha, cookies, HTTPS, cabeçalhos,
   middlewares, DEBUG). O sistema não liga (SEC.E011 a SEC.E020, SEC.E061 a SEC.E065).
 - Nunca silenciar checagens do 00: `SILENCED_SYSTEM_CHECKS` com `SEC.*` impede o sistema de ligar.
-- Segredos (chaves, senhas, tokens) nunca no código. Sempre em variável de ambiente.
+- Segredos (chaves, senhas, tokens) nunca no código. Sempre em variável de ambiente ou no `.env` (fora do Git).
+- E-mail: mandar com `send_mail` do Django, normalmente. O 00 cuida do provedor e do desvio para a caixa de teste
+  fora de produção. Nunca redefinir `EMAIL_BACKEND` (SEC.E091) nem escrever lógica de "está em produção?" no fluxo.
 
 ## Versão do 00
 - A versão do 00 fica fixa em dois lugares: `pyproject.toml` ([tool.uv.sources]) e
@@ -658,6 +684,7 @@ _MODELOS = {
     "pyproject.toml": _PYPROJECT,
     ".python-version": _PYTHON_VERSION,
     ".gitignore": _GITIGNORE,
+    ".env.exemplo": _ENV_EXEMPLO,
     "manage.py": _MANAGE,
     "config/__init__.py": _CONFIG_INIT,
     "config/settings.py": _SETTINGS,

@@ -10,11 +10,34 @@ segurança faz o sistema não ligar (checagens SEC.E01x e SEC.E06x).
 
 Modos (variável de ambiente AMBIENTE):
 - dev       (padrão): no Mac do desenvolvedor. HTTPS relaxado e página de erro detalhada.
-- producao: sistema publicado. Exige SECRET_KEY e ALLOWED_HOSTS nas variáveis de ambiente.
+- producao: sistema publicado. Exige SECRET_KEY, ALLOWED_HOSTS e o provedor de e-mail nas variáveis de ambiente.
+
+Variáveis de ambiente podem vir de um arquivo .env na pasta do sistema (fora do Git: o .gitignore dos sistemas
+já ignora). Uma variável já definida no ambiente vale mais que a do arquivo. Segredos nunca no código.
 """
 import os
+from pathlib import Path
 
 from django.core.exceptions import ImproperlyConfigured
+
+
+def _carregar_arquivo_env(caminho=None):
+    """Lê o arquivo .env da pasta de onde o sistema foi ligado (linhas NOME=valor). Não sobrescreve o ambiente."""
+    arquivo = Path(caminho) if caminho else Path.cwd() / ".env"
+    if not arquivo.is_file():
+        return
+    for linha in arquivo.read_text(encoding="utf-8").splitlines():
+        linha = linha.strip()
+        if not linha or linha.startswith("#") or "=" not in linha:
+            continue
+        nome, valor = linha.split("=", 1)
+        nome, valor = nome.strip(), valor.strip()
+        if len(valor) >= 2 and valor[0] == valor[-1] and valor[0] in "\"'":
+            valor = valor[1:-1]
+        os.environ.setdefault(nome, valor)
+
+
+_carregar_arquivo_env()
 
 AMBIENTE = os.environ.get("AMBIENTE", "dev")
 if AMBIENTE not in ("dev", "producao"):
@@ -91,10 +114,39 @@ LOGIN_REDIRECT_URL = "/"
 LOGOUT_REDIRECT_URL = "entrar"
 NOME_DO_SISTEMA = ""  # aparece no assunto e no texto dos e-mails; o sistema preenche
 
-# E-mails: no Mac aparecem no terminal (nenhum e-mail sai de verdade). O provedor de e-mail do dev online e de
-# produção vem numa próxima versão do 00.
-if not PRODUCAO:
-    EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+# E-mails (US 3.1b, D45). O 00 não tem conta em provedor nenhum: cada sistema configura a própria conta nas
+# variáveis de ambiente (ou no .env). Qualquer provedor que aceite SMTP (Brevo, Mailjet, Resend...).
+#   EMAIL_HOST, EMAIL_PORT (587), EMAIL_HOST_USER, EMAIL_HOST_PASSWORD: dados SMTP do provedor
+#   EMAIL_REMETENTE: quem envia, ex.: Mindor <nao-responda@mindtopo.com.br>
+#   EMAIL_DE_TESTE: caixa de teste. Fora de produção, TODO e-mail vai só para ela (desvio, D39)
+# Sem provedor (fora de produção), os e-mails aparecem no terminal. Em produção, sem provedor o sistema não liga.
+EMAIL_BACKEND = "infra_vibecoding.email.EnvioComDesvio"
+EMAIL_HOST = os.environ.get("EMAIL_HOST", "")
+EMAIL_PORT = int(os.environ.get("EMAIL_PORT", "587"))
+EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER", "")
+EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD", "")
+EMAIL_USE_TLS = True
+EMAIL_TIMEOUT = 15
+EMAIL_REMETENTE = os.environ.get("EMAIL_REMETENTE", "")
+EMAIL_DE_TESTE = os.environ.get("EMAIL_DE_TESTE", "")
+DEFAULT_FROM_EMAIL = SERVER_EMAIL = EMAIL_REMETENTE or "nao-responda@localhost"
+
+if PRODUCAO:
+    if not EMAIL_HOST:
+        raise ImproperlyConfigured("Em produção, o provedor de e-mail é obrigatório (variável EMAIL_HOST e dados SMTP).")
+    if not EMAIL_REMETENTE or "localhost" in EMAIL_REMETENTE.lower():
+        raise ImproperlyConfigured(
+            "Em produção, EMAIL_REMETENTE é obrigatório e precisa ser um endereço de verdade do sistema "
+            "(ex.: Mindor <nao-responda@mindtopo.com.br>)."
+        )
+elif EMAIL_HOST:
+    if not EMAIL_DE_TESTE:
+        raise ImproperlyConfigured(
+            "Provedor de e-mail ligado fora de produção sem EMAIL_DE_TESTE: todo e-mail precisa ser desviado para "
+            "uma caixa de teste (D39). Preencha EMAIL_DE_TESTE."
+        )
+    if not EMAIL_REMETENTE:
+        raise ImproperlyConfigured("Provedor de e-mail ligado sem EMAIL_REMETENTE (o remetente confirmado no provedor).")
 
 # Senhas: guardadas com Argon2 (o método mais forte disponível), nunca a senha em si.
 PASSWORD_HASHERS = [

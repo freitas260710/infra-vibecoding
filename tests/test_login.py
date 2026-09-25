@@ -339,12 +339,6 @@ def test_login_proprio_no_lugar_do_00_nao_liga(settings):
     assert [e.id for e in sec08_telas_de_login_do_00()] == ["SEC.E083"]
 
 
-def test_emails_no_mac_aparecem_no_terminal():
-    from infra_vibecoding import configuracoes
-
-    assert configuracoes.EMAIL_BACKEND == "django.core.mail.backends.console.EmailBackend"
-
-
 def test_tela_de_banco_que_cria_usuario_com_senha_nao_liga():
     from django.contrib.admin import AdminSite
 

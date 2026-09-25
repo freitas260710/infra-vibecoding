@@ -63,6 +63,8 @@ def test_producao_liga_tudo(monkeypatch, recarregar):
     monkeypatch.setenv("AMBIENTE", "producao")
     monkeypatch.setenv("SECRET_KEY", CHAVE_BOA)
     monkeypatch.setenv("ALLOWED_HOSTS", "exemplo.com, www.exemplo.com")
+    monkeypatch.setenv("EMAIL_HOST", "smtp.exemplo.com")
+    monkeypatch.setenv("EMAIL_REMETENTE", "Sistema <nao-responda@exemplo.com>")
     c = recarregar()
     assert c.DEBUG is False
     assert c.ALLOWED_HOSTS == ["exemplo.com", "www.exemplo.com"]
@@ -77,6 +79,8 @@ def test_producao_passa_no_check_deploy_do_django():
         "AMBIENTE": "producao",
         "SECRET_KEY": secrets.token_urlsafe(64),
         "ALLOWED_HOSTS": "exemplo.com",
+        "EMAIL_HOST": "smtp.exemplo.com",
+        "EMAIL_REMETENTE": "nao-responda@exemplo.com",
         "DJANGO_SETTINGS_MODULE": "tests.settings",
     }
     r = subprocess.run(

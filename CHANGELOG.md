@@ -1,5 +1,18 @@
 # Histórico de versões
 
+## 0.2.2
+
+Envio de e-mail com provedor e desvio para a caixa de teste (US 3.1b, decisões D39 e D45).
+
+- O 00 não tem conta em provedor nenhum: cada sistema configura a própria conta por variáveis de ambiente ou pelo arquivo `.env` (fora do Git): `EMAIL_HOST`, `EMAIL_PORT`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD`, `EMAIL_REMETENTE` e `EMAIL_DE_TESTE`. Funciona com qualquer provedor SMTP.
+- Envio do 00 (`infra_vibecoding.email.EnvioComDesvio`): fora de produção, com provedor, todo e-mail vai só para a caixa de teste, com os destinatários originais no assunto e no cabeçalho `X-Destinatario-Original`. Sem provedor, aparece no terminal. Em produção, vai para quem deve.
+- Não liga: provedor fora de produção sem caixa de teste ou sem remetente; produção sem provedor ou com remetente de mentira (localhost).
+- Checagens SEC.E091 (envio precisa ser o do 00) e SEC.E092 (produção com provedor e remetente de verdade).
+- O arquivo `.env` da pasta do sistema é lido ao ligar (o ambiente vale mais que o arquivo).
+- O portão passa a informar um provedor e um remetente de mentira no passo de checagens em modo produção.
+- O comando novo-sistema cria o `.env.exemplo` e ensina no CLAUDE.md a mandar e-mail sem lógica de "está em produção?".
+- 260 testes automáticos.
+
 ## 0.2.1
 
 Correção: ninguém define a senha de outra pessoa (US 3.1a). Achado pelo Claude do projeto Mindor ao testar a 0.2.0.

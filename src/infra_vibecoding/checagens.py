@@ -339,3 +339,30 @@ def sec08_telas_de_login_do_00(app_configs=None, **kwargs):
         ),
         id="SEC.E083",
     )]
+
+
+# E-mail (US 3.1b)
+
+_ENVIO_00 = "infra_vibecoding.email.EnvioComDesvio"
+_ENVIO_DOS_TESTES = "django.core.mail.backends.locmem.EmailBackend"  # caixa de mentira que o pytest-django liga
+
+
+@register(Tags.security)
+def sec09_email(app_configs=None, **kwargs):
+    erros = []
+    if getattr(settings, "EMAIL_BACKEND", "") not in (_ENVIO_00, _ENVIO_DOS_TESTES):
+        erros.append(Error(
+            "EMAIL_BACKEND trocado: o envio de e-mail precisa ser o do 00 (desvio para a caixa de teste fora de "
+            "produção).",
+            hint=f"Não redefina EMAIL_BACKEND: ele vem do 00 como '{_ENVIO_00}'.",
+            id="SEC.E091",
+        ))
+    if getattr(settings, "AMBIENTE", None) == "producao":
+        remetente = str(getattr(settings, "DEFAULT_FROM_EMAIL", "")).lower()
+        if not getattr(settings, "EMAIL_HOST", "") or not remetente or "localhost" in remetente:
+            erros.append(Error(
+                "Produção sem provedor de e-mail ou com remetente de mentira (localhost).",
+                hint="Preencha EMAIL_HOST, os dados SMTP e EMAIL_REMETENTE nas variáveis de ambiente do servidor.",
+                id="SEC.E092",
+            ))
+    return erros

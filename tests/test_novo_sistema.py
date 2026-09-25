@@ -55,6 +55,14 @@ def test_arquivos_gerados(sistema):
     assert {"CLAUDE.md", "config/settings.py", ".github/workflows/verificacao.yml", "pyproject.toml"} <= gerados
 
 
+def test_sistema_nasce_com_modelo_de_env_sem_segredo_e_env_fora_do_git(sistema):
+    exemplo = (sistema / ".env.exemplo").read_text()
+    for linha in exemplo.splitlines():
+        if linha.startswith(("EMAIL_HOST_PASSWORD", "EMAIL_HOST_USER", "EMAIL_HOST=")):
+            assert linha.endswith("="), linha  # modelo vazio: nenhum dado de conta
+    assert ".env" in (sistema / ".gitignore").read_text().splitlines()
+
+
 def test_settings_herda_do_00_na_primeira_linha_de_codigo(sistema):
     texto = (sistema / "config/settings.py").read_text()
     codigo = [l for l in texto.split('"""')[-1].splitlines() if l.strip()]
@@ -122,7 +130,10 @@ def test_sistema_gerado_passa_nas_checagens(sistema):
 def test_sistema_gerado_passa_nas_checagens_de_producao(sistema):
     r = rodar(
         sistema, "manage.py", "check", "--deploy", "--fail-level", "WARNING",
-        ambiente={"AMBIENTE": "producao", "ALLOWED_HOSTS": "exemplo.com", "SECRET_KEY": secrets.token_urlsafe(64)},
+        ambiente={
+            "AMBIENTE": "producao", "ALLOWED_HOSTS": "exemplo.com", "SECRET_KEY": secrets.token_urlsafe(64),
+            "EMAIL_HOST": "smtp.exemplo.com", "EMAIL_REMETENTE": "nao-responda@exemplo.com",
+        },
     )
     assert r.returncode == 0, r.stdout + r.stderr
 

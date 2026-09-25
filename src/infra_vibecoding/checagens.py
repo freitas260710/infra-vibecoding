@@ -397,3 +397,75 @@ def sec08_cadastro_publico(app_configs=None, **kwargs):
         ),
         id="SEC.E084",
     )]
+
+
+# Manual da IA (US 3.2b)
+
+def caminho_do_manual():
+    from pathlib import Path as _P
+
+    return _P(__file__).resolve().parent / "REGRAS_DA_IA.md"
+
+
+def linha_do_manual(base):
+    """A linha que o CLAUDE.md do sistema precisa ter para carregar o manual do 00 instalado."""
+    import os
+
+    return "@" + os.path.relpath(caminho_do_manual(), base).replace(os.sep, "/")
+
+
+@register()
+def sec10_manual_da_ia(app_configs=None, **kwargs):
+    """O CLAUDE.md do sistema carrega o manual da IA do 00 instalado (não uma cópia das regras)."""
+    base = getattr(settings, "BASE_DIR", None)
+    if base is None or getattr(settings, "AMBIENTE", None) == "producao":
+        return []
+    base = Path(base).resolve()
+    if base not in caminho_do_manual().parents:
+        return []  # o 00 não está instalado dentro da pasta do sistema (ex.: o próprio repositório do 00)
+    esperada = linha_do_manual(base)
+    claude = base / "CLAUDE.md"
+    linhas = claude.read_text(encoding="utf-8").splitlines() if claude.is_file() else []
+    if esperada in (linha.strip() for linha in linhas):
+        return []
+    return [Error(
+        "O CLAUDE.md do sistema não carrega o manual da IA do 00 (as regras de como usar o 00 na versão instalada).",
+        hint=f"Coloque no CLAUDE.md, numa linha sozinha: {esperada}   (o comando 'uv run infra-vibecoding regras' "
+             "mostra a mesma linha). Não copie as regras do 00 para o CLAUDE.md.",
+        id="SEC.E101",
+    )]
+
+
+_LINHA_DE_MANUAL = __import__("re").compile(r"^@\S*infra_vibecoding/REGRAS_DA_IA\.md\s*$")
+
+
+def garantir_manual_no_claude_md(base=None):
+    """O próprio 00 coloca (ou corrige) a linha do manual no CLAUDE.md do sistema, quando ele liga no computador
+    do desenvolvedor. Não roda em produção nem na verificação do GitHub (lá a SEC.E101 confere o que foi enviado).
+    Devolve True se mexeu no arquivo."""
+    import os
+    import sys
+
+    base = base or getattr(settings, "BASE_DIR", None)
+    if base is None or getattr(settings, "AMBIENTE", None) == "producao" or os.environ.get("CI"):
+        return False
+    base = Path(base).resolve()
+    if base not in caminho_do_manual().parents:
+        return False
+    esperada = linha_do_manual(base)
+    claude = base / "CLAUDE.md"
+    linhas = claude.read_text(encoding="utf-8").splitlines() if claude.is_file() else []
+    if esperada in (linha.strip() for linha in linhas):
+        return False
+    antigas = [i for i, linha in enumerate(linhas) if _LINHA_DE_MANUAL.match(linha.strip())]
+    if antigas:  # caminho antigo (ex.: mudou a versão do Python): troca pela linha certa
+        for i in antigas:
+            linhas[i] = esperada
+    else:
+        bloco = ["", "Regras do Infra Vibecoding (00), na versão instalada (colocada pelo próprio 00):", esperada, ""]
+        posicao = 1 if linhas and linhas[0].startswith("#") else 0
+        linhas[posicao:posicao] = bloco if linhas else ["# Regras para a IA neste sistema", *bloco]
+    claude.write_text("\n".join(linhas).rstrip("\n") + "\n", encoding="utf-8")
+    print(f"Infra Vibecoding: coloquei no CLAUDE.md a linha do manual da IA ({esperada}). Inclua no próximo commit.",
+          file=sys.stderr)
+    return True

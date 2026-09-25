@@ -102,11 +102,13 @@ def test_workflow_do_sistema_so_chama_o_portao_do_00(sistema):
     assert "steps:" not in workflow  # nada copiado: os passos moram no 00
 
 
-def test_claude_md_tem_as_regras(sistema):
-    texto = (sistema / "CLAUDE.md").read_text()
+def test_regras_da_ia_chegam_ao_sistema_pelo_manual_do_00(sistema):
+    """As regras moram no manual do 00 (importado pelo CLAUDE.md), não numa cópia dentro do sistema."""
+    manual = (RAIZ / "src" / "infra_vibecoding" / "REGRAS_DA_IA.md").read_text()
     for trecho in ("ModeloSeguro", "@politica", ".para(request.user)", "@exige", "AdminSeguro",
-                   "SILENCED_SYSTEM_CHECKS", "como_sistema", "self.consultar", "contas.Usuario", __version__):
-        assert trecho in texto
+                   "SILENCED_SYSTEM_CHECKS", "como_sistema", "self.consultar", "contas.Usuario"):
+        assert trecho in manual
+    assert "REGRAS_DA_IA.md" in (sistema / "CLAUDE.md").read_text()
 
 
 def test_nenhuma_senha_escrita_nos_arquivos_gerados():
@@ -221,3 +223,98 @@ def test_portao_existe_e_so_roda_quando_chamado():
     for passo in ("uv sync --locked", "pytest", "manage.py check", "--deploy", "makemigrations --check",
                   "pip-audit", "gitleaks"):
         assert passo in portao
+
+
+# US 3.2b: manual da IA dentro do 00, importado pelo CLAUDE.md do sistema.
+def test_sistema_novo_importa_o_manual_do_00_em_vez_de_copiar(sistema):
+    claude = (sistema / "CLAUDE.md").read_text()
+    assert "@.venv/lib/python3.13/site-packages/infra_vibecoding/REGRAS_DA_IA.md" in claude.splitlines()
+    assert "ModeloSeguro" not in claude  # as regras do 00 não são copiadas
+
+
+def test_manual_da_ia_existe_e_cobre_o_essencial():
+    manual = (RAIZ / "src" / "infra_vibecoding" / "REGRAS_DA_IA.md").read_text()
+    for trecho in ("ModeloSeguro", "@politica", ".para(request.user)", "convidar(", "desconectar(",
+                   "CADASTRO_PUBLICO", "EMAIL_BACKEND", "teste de ataque", "novidades --desde"):
+        assert trecho in manual, trecho
+    assert len(manual.splitlines()) < 200  # manual curto: a IA segue melhor
+
+
+def _sistema_com_00_instalado(tmp_path, monkeypatch, linha_no_claude):
+    from infra_vibecoding import checagens
+
+    manual = tmp_path / ".venv" / "lib" / "python3.13" / "site-packages" / "infra_vibecoding" / "REGRAS_DA_IA.md"
+    manual.parent.mkdir(parents=True)
+    manual.write_text("manual")
+    monkeypatch.setattr(checagens, "caminho_do_manual", lambda: manual)
+    if linha_no_claude is not None:
+        (tmp_path / "CLAUDE.md").write_text(f"# Regras\n\n{linha_no_claude}\n")
+    return checagens
+
+
+def test_claude_md_com_o_manual_passa(tmp_path, monkeypatch, settings):
+    settings.BASE_DIR = tmp_path
+    checagens = _sistema_com_00_instalado(
+        tmp_path, monkeypatch, "@.venv/lib/python3.13/site-packages/infra_vibecoding/REGRAS_DA_IA.md"
+    )
+    assert checagens.sec10_manual_da_ia() == []
+
+
+@pytest.mark.parametrize("linha", [None, "sem a linha", "@.venv/lib/python3.12/site-packages/infra_vibecoding/REGRAS_DA_IA.md"])
+def test_claude_md_sem_o_manual_ou_com_caminho_errado_nao_liga(tmp_path, monkeypatch, settings, linha):
+    settings.BASE_DIR = tmp_path
+    checagens = _sistema_com_00_instalado(tmp_path, monkeypatch, linha)
+    erros = checagens.sec10_manual_da_ia()
+    assert [e.id for e in erros] == ["SEC.E101"]
+    assert "@.venv/lib/python3.13/site-packages/infra_vibecoding/REGRAS_DA_IA.md" in erros[0].hint
+
+
+def test_manual_nao_e_cobrado_em_producao(tmp_path, monkeypatch, settings):
+    settings.BASE_DIR = tmp_path
+    settings.AMBIENTE = "producao"
+    checagens = _sistema_com_00_instalado(tmp_path, monkeypatch, None)
+    assert checagens.sec10_manual_da_ia() == []
+
+
+def test_comandos_regras_e_novidades(capsys):
+    assert main(["novidades", "--desde", "0.2.1"]) == 0
+    saida = capsys.readouterr().out
+    assert "## 0.2.2" in saida and "## 0.2.1" not in saida
+    assert main(["regras"]) == 0
+    saida = capsys.readouterr().out
+    assert "REGRAS_DA_IA.md" in saida and "Manual da IA" in saida
+
+
+def test_o_proprio_00_coloca_a_linha_no_claude_md(tmp_path, monkeypatch, settings):
+    settings.BASE_DIR = tmp_path
+    monkeypatch.delenv("CI", raising=False)
+    checagens = _sistema_com_00_instalado(tmp_path, monkeypatch, None)
+    certa = "@.venv/lib/python3.13/site-packages/infra_vibecoding/REGRAS_DA_IA.md"
+    # sem CLAUDE.md: cria
+    assert checagens.garantir_manual_no_claude_md() is True
+    assert certa in (tmp_path / "CLAUDE.md").read_text().splitlines()
+    assert checagens.sec10_manual_da_ia() == []
+    # já certo: não mexe
+    assert checagens.garantir_manual_no_claude_md() is False
+    # CLAUDE.md do sistema sem a linha: coloca logo abaixo do título, sem apagar nada
+    (tmp_path / "CLAUDE.md").write_text("# Regras do Mindor\n\n- regra do negócio\n")
+    assert checagens.garantir_manual_no_claude_md() is True
+    texto = (tmp_path / "CLAUDE.md").read_text()
+    assert texto.startswith("# Regras do Mindor\n") and "- regra do negócio" in texto and certa in texto
+    # caminho antigo (outra versão do Python): troca pela linha certa
+    (tmp_path / "CLAUDE.md").write_text(texto.replace("python3.13", "python3.12"))
+    assert checagens.garantir_manual_no_claude_md() is True
+    novo = (tmp_path / "CLAUDE.md").read_text()
+    assert certa in novo and "python3.12" not in novo
+
+
+@pytest.mark.parametrize("onde", ["CI", "producao"])
+def test_na_verificacao_e_em_producao_o_00_nao_mexe_no_claude_md(tmp_path, monkeypatch, settings, onde):
+    settings.BASE_DIR = tmp_path
+    if onde == "CI":
+        monkeypatch.setenv("CI", "true")
+    else:
+        settings.AMBIENTE = "producao"
+    checagens = _sistema_com_00_instalado(tmp_path, monkeypatch, None)
+    assert checagens.garantir_manual_no_claude_md() is False
+    assert not (tmp_path / "CLAUDE.md").exists()

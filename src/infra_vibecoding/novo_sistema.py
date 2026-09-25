@@ -454,82 +454,15 @@ terminal onde o runserver está rodando.
 _CLAUDE = '''
 # Regras para a IA neste sistema (__NOME__)
 
-Este sistema é construído sobre o Infra Vibecoding (o "00"), versão __VERSAO__. O 00 é um pacote importado,
-igual ao Django. Toda a segurança mora nele. Este sistema escreve só o negócio.
+Este sistema é construído sobre o Infra Vibecoding (o "00"). As regras do 00 ficam no manual que vem dentro do
+próprio 00, sempre na versão instalada. A linha abaixo carrega o manual: o próprio 00 a coloca e corrige quando o
+sistema liga, e a checagem SEC.E101 confere no GitHub. Se o manual não carregar, rode `uv sync`.
 
-Muitas regras abaixo o próprio 00 confere sozinho e o sistema não liga se forem quebradas. Mesmo assim,
-siga todas: acertar de primeira é mais rápido do que esbarrar numa checagem.
+@.venv/lib/python3.13/site-packages/infra_vibecoding/REGRAS_DA_IA.md
 
-## Dados (tabelas)
-- Toda tabela herda de `infra_vibecoding.dados.ModeloSeguro`, nunca de `models.Model` (SEC.E021).
-- Toda tabela tem uma política `@politica(Tabela)` no arquivo `politicas.py` do app (SEC.E022).
-  `escopo(usuario, qs)` diz quais registros o usuário vê. `pode(usuario, acao, obj)` diz o que ele pode fazer.
-- Ler dados: sempre `Tabela.objects.para(request.user)`. Nunca `.all()`, `.filter()` ou `.get()` direto.
-- Gravar: `Tabela.objects.criar(usuario, ...)`, `obj.salvar(usuario)`, `obj.excluir(usuario)`.
-- Dentro de uma política, para ler outra tabela (ex.: "o usuário tem perfil de Atendimento?"), use
-  `self.consultar(OutraTabela)`: só leitura e só dentro da regra. Nunca `como_sistema` dentro de política.
-- `como_sistema("motivo")` ignora as regras (igual ao "ignore privacy rules" do Bubble). Só usar com
-  autorização explícita do Ed, com motivo claro. Fica registrado.
-- Proibido: SQL escrito à mão (`raw`, `connection.cursor`, `extra`).
-
-## Usuários
-- A tabela de usuário é `contas.Usuario`, que herda de `UsuarioSeguro` do 00: login pelo e-mail, mesma trava das
-  outras tabelas. Campos do sistema (ex.: empresa) entram em `contas/models.py`.
-- Nunca usar `django.contrib.auth.models.User`. Para se referir ao usuário: `settings.AUTH_USER_MODEL` em campos e
-  `get_user_model()` no código. Ler usuários com `.para(request.user)`, como qualquer tabela.
-- Abrir acesso para alguém: `convidar(request.user, request, email=..., outros campos)` de
-  `infra_vibecoding.login`. Confere a regra "criar" da tabela de usuário, cria o usuário SEM senha e manda o link
-  de primeiro acesso por e-mail. Quem pode abrir acesso para quem é decisão do sistema, na política.
-- Nunca definir, sortear, mostrar ou mandar senha de outra pessoa. Nunca criar senha provisória. A pessoa define
-  a própria senha pelo link (primeiro acesso) ou por "Esqueci a senha".
-- Nunca trocar `AUTH_USER_MODEL`.
-
-## Login
-- Entrar, sair, primeiro acesso, esqueci a senha, trocar a senha e os links do e-mail são telas do 00, ligadas
-  em `config/urls.py` com `path("", include("infra_vibecoding.login.urls"))` (SEC.E083). Nunca criar telas de
-  login, senha ou link próprias. Não redefinir `LOGIN_URL`.
-- Derrubar sessões de alguém (ex.: dono da empresa desconectando os usuários dela): `desconectar(request.user,
-  usuarios, request)` de `infra_vibecoding.login`. Quem pode desconectar quem fica na política da tabela de usuário
-  (ação "desconectar"). Nunca apagar sessões direto no banco.
-- Cadastro público: desligado. Só ligar com autorização do Ed, pela classe de cadastro (`CADASTRO_PUBLICO`), com
-  os campos a mais e o `ao_confirmar` do sistema. Termos de uso e política de privacidade são obrigatórios.
-- Para mudar só o visual: criar no sistema `templates/infra_vibecoding/login/<tela>.html` (entrar, primeiro_acesso,
-  esqueci_a_senha, definir_senha, trocar_senha, criar_conta, cadastro_senha, base), mantendo os campos do formulário e o `{% csrf_token %}`.
-
-## Telas
-- Toda tela declara quem pode abrir, com `infra_vibecoding.telas`: `@publica`, `@logado` ou
-  `@exige("acao", Tabela)` (SEC.E041). Login é obrigatório por padrão.
-- `@publica` só com autorização do Ed (ex.: entrar, cadastro, página de apresentação).
-- Esconder botão ou menu na tela é só visual. A permissão é sempre conferida no servidor (política e @exige).
-- Telas feitas com templates do Django e HTMX.
-- Proibido: `@csrf_exempt`, `mark_safe`, `|safe` e `autoescape off` com dado vindo de usuário.
-
-## Tela de banco (admin)
-- Registrar tabelas com `admin.site.register(Tabela, AdminSeguro)` (`infra_vibecoding.admin`) (SEC.E071).
-- O admin fica no endereço próprio definido em `config/urls.py`. Nunca `admin/` (SEC.E072).
-
-## Configurações
-- A primeira linha do `config/settings.py` importa as configurações do 00. Não remover (SEC.E010).
-- Não redefinir nem enfraquecer nenhum item de segurança vindo do 00 (senha, cookies, HTTPS, cabeçalhos,
-  middlewares, DEBUG). O sistema não liga (SEC.E011 a SEC.E020, SEC.E061 a SEC.E065).
-- Nunca silenciar checagens do 00: `SILENCED_SYSTEM_CHECKS` com `SEC.*` impede o sistema de ligar.
-- Segredos (chaves, senhas, tokens) nunca no código. Sempre em variável de ambiente ou no `.env` (fora do Git).
-- E-mail: mandar com `send_mail` do Django, normalmente. O 00 cuida do provedor e do desvio para a caixa de teste
-  fora de produção. Nunca redefinir `EMAIL_BACKEND` (SEC.E091) nem escrever lógica de "está em produção?" no fluxo.
-
-## Versão do 00
-- A versão do 00 fica fixa em dois lugares: `pyproject.toml` ([tool.uv.sources]) e
-  `.github/workflows/verificacao.yml`. Só atualizar quando o Ed pedir, sempre os dois juntos.
-- Se algo de segurança ou infra faltar no 00, não criar por conta própria no sistema. Parar e avisar o Ed:
-  isso vira uma mudança no 00.
-
-## Trabalho
-- Usar `uv` para tudo (`uv add`, `uv run`). Não usar pip.
-- Antes de cada commit: `uv run pytest` e `uv run python manage.py check` sem erro.
-- Mudou uma tabela: `uv run python manage.py makemigrations` e incluir a migração no commit.
-- Trabalhar só dentro da pasta deste sistema. Nunca `git config --global`.
-- Branch principal: main. Textos, comentários e mensagens de commit em português do Brasil.
-- Se um passo falhar ou uma checagem SEC.* barrar, parar e relatar. Nunca contornar.
+## Regras deste sistema
+- Aqui entram só as regras do negócio deste sistema (nomes, telas, quem pode o quê). As regras do 00 ficam no
+  manual acima: não copie para cá.
 '''
 
 _CONTAS_INIT = '''

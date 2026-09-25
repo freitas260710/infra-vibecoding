@@ -17,6 +17,12 @@ class InfraVibecodingConfig(AppConfig):
         # Carrega o politicas.py de cada app do sistema.
         autodiscover_modules("politicas")
 
+        # O CLAUDE.md do sistema carrega o manual da IA do 00 instalado: o próprio 00 garante a linha (US 3.2b).
+        try:
+            checagens.garantir_manual_no_claude_md()
+        except OSError:
+            pass  # pasta só de leitura: a checagem SEC.E101 avisa
+
         # "Alterar senha" do topo da tela de banco usa a tela de trocar a senha do 00 (0.2.1).
         from django.apps import apps
 

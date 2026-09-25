@@ -358,6 +358,14 @@ def test_tela_de_banco_que_cria_usuario_com_senha_nao_liga():
     site.register(Usuario, ComSenha)
     assert [e.id for e in verificar_admin(site)] == ["SEC.E073"]
 
+    class Reaberta(AdminUsuarioSeguro):
+        def user_change_password(self, request, id, form_url=""):
+            return None
+
+    site = AdminSite(name="teste-reaberta")
+    site.register(Usuario, Reaberta)
+    assert [e.id for e in verificar_admin(site)] == ["SEC.E073"]
+
     site = AdminSite(name="teste-sem-senha")
     site.register(Usuario, AdminUsuarioSeguro)
     assert verificar_admin(site) == []

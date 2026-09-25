@@ -209,12 +209,13 @@ def verificar_admin(site=None):
             ))
         if isinstance(model_admin, AdminUsuarioSeguro):
             campos = set(flatten_fieldsets(getattr(model_admin, "add_fieldsets", ()) or ()))
-            if campos & _CAMPOS_DE_SENHA_NA_CRIACAO:
+            reabriu = type(model_admin).user_change_password is not AdminUsuarioSeguro.user_change_password
+            if campos & _CAMPOS_DE_SENHA_NA_CRIACAO or reabriu:
                 erros.append(Error(
-                    f"A tela de banco de {model._meta.label} cria usuário com senha definida por outra pessoa.",
+                    f"A tela de banco de {model._meta.label} permite definir a senha de outra pessoa.",
                     hint=(
-                        "Tire password1, password2 e usable_password do add_fieldsets. O usuário nasce sem senha "
-                        "e define a própria senha pelo link de primeiro acesso (US 3.1)."
+                        "Tire password1, password2 e usable_password do add_fieldsets e não sobrescreva "
+                        "user_change_password. O usuário define a própria senha pelo link do e-mail (D43)."
                     ),
                     obj=model,
                     id="SEC.E073",

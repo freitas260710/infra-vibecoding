@@ -39,14 +39,15 @@ else:
     SECRET_KEY = os.environ.get("SECRET_KEY", "dev-inseguro-nao-usar-em-producao")
     ALLOWED_HOSTS = ["localhost", "127.0.0.1", "[::1]", "testserver"]
 
+# O 00 vem primeiro: os comandos de terminal dele têm prioridade (ex.: changepassword do 00, 0.2.1).
 INSTALLED_APPS = [
+    "infra_vibecoding",
     "django.contrib.admin",
     "django.contrib.contenttypes",
     "django.contrib.auth",
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
-    "infra_vibecoding",
 ]
 
 MIDDLEWARE = [

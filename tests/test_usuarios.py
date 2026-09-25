@@ -176,16 +176,63 @@ def test_admin_recusa_email_repetido_sem_quebrar(client, chefe, ana):
     assert Usuario._base_manager.filter(email="ana@exemplo.com").count() == 1
 
 
-def test_admin_troca_senha_como_sistema(client, chefe, ana, caplog):
+def test_admin_nao_define_senha_de_outra_pessoa(client, chefe, ana, caplog):
     client.force_login(chefe)
     nova = SENHA + "-nova"
     with caplog.at_level(logging.INFO, logger="infra_vibecoding.auditoria"):
-        r = client.post(f"{ADMIN_USUARIOS}{ana.pk}/password/", {
+        abrir = client.get(f"{ADMIN_USUARIOS}{ana.pk}/password/")
+        enviar = client.post(f"{ADMIN_USUARIOS}{ana.pk}/password/", {
             "usable_password": "true", "password1": nova, "password2": nova,
         })
-    assert r.status_code == 302, r.content.decode()[:2000]
+    assert abrir.status_code == 403 and enviar.status_code == 403
+    assert Usuario._base_manager.get(pk=ana.pk).check_password(SENHA)
+    assert f"tentou definir a senha do usuário {ana.pk} pela tela de banco (bloqueado)" in caplog.text
+
+
+def test_edicao_de_usuario_so_mostra_a_situacao_da_senha(client, chefe, ana):
+    client.force_login(chefe)
+    pagina = client.get(f"{ADMIN_USUARIOS}{ana.pk}/change/").content.decode()
+    assert "Definida pela própria pessoa." in pagina
+    assert "../password/" not in pagina and "/password/" not in pagina
+    novo = Usuario.objects.create_user("novo@exemplo.com")
+    pagina = client.get(f"{ADMIN_USUARIOS}{novo.pk}/change/").content.decode()
+    assert "Ainda não definida: aguardando o primeiro acesso." in pagina
+
+
+def test_alterar_a_propria_senha_no_topo_da_tela_de_banco_vai_para_a_tela_do_00(client, chefe):
+    client.force_login(chefe)
+    r = client.get("/gestao-interna/password_change/")
+    assert r.status_code == 302 and r["Location"] == "/trocar-senha/"
+
+
+def _senhas_digitadas(monkeypatch, *senhas):
+    import getpass
+
+    fila = list(senhas)
+    monkeypatch.setattr(getpass, "getpass", lambda *a, **k: fila.pop(0))
+
+
+def test_changepassword_fora_de_producao_troca_com_registro_e_aviso(ana, monkeypatch, caplog, mailoutbox):
+    nova = SENHA + "-teste"
+    _senhas_digitadas(monkeypatch, "123456", "123456", nova, nova)  # a fraca é recusada, a segunda passa
+    with caplog.at_level(logging.INFO, logger="infra_vibecoding.auditoria"):
+        call_command("changepassword", "Ana@Exemplo.com")
     assert Usuario._base_manager.get(pk=ana.pk).check_password(nova)
-    assert "admin: troca de senha de ana@exemplo.com" in caplog.text
+    assert "terminal: senha de ana@exemplo.com trocada pelo changepassword (dev)" in caplog.text
+    assert mailoutbox[-1].to == ["ana@exemplo.com"] and "foi trocada" in mailoutbox[-1].body
+
+
+def test_changepassword_em_producao_bloqueado(ana, settings, monkeypatch):
+    settings.AMBIENTE = "producao"
+    _senhas_digitadas(monkeypatch, SENHA + "-x", SENHA + "-x")
+    with pytest.raises(CommandError, match="Bloqueado em produção"):
+        call_command("changepassword", "ana@exemplo.com")
+    assert Usuario._base_manager.get(pk=ana.pk).check_password(SENHA)
+
+
+def test_changepassword_usuario_inexistente(monkeypatch):
+    with pytest.raises(CommandError, match="não existe"):
+        call_command("changepassword", "ninguem@exemplo.com")
 
 
 def test_admin_edita_usuario(client, chefe, ana):

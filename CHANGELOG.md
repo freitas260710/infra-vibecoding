@@ -1,5 +1,16 @@
 # Histórico de versões
 
+## 0.2.1
+
+Correção: ninguém define a senha de outra pessoa (US 3.1a). Achado pelo Claude do projeto Mindor ao testar a 0.2.0.
+
+- Tela de banco: a edição de usuário não tem mais o botão "Definir senha". Mostra só se a senha já foi definida pela própria pessoa ou se ainda espera o primeiro acesso. O endereço de definir senha de outro usuário responde 403 e fica registrado.
+- "Alterar senha" no topo da tela de banco leva para a tela de trocar a própria senha do 00 (antes dava erro).
+- Comando de terminal `changepassword` (antes dava erro de leitura sem escopo): fora de produção (Mac e dev online) troca a senha para testes, com registro e e-mail de aviso; em produção, bloqueado com mensagem clara (quem esqueceu usa "Esqueci a senha").
+- O app do 00 passa a ser o primeiro de INSTALLED_APPS (os comandos de terminal dele têm prioridade).
+- SEC.E073 também barra quem reabrir a definição de senha de outra pessoa na tela de banco.
+- 245 testes automáticos.
+
 ## 0.2.0
 
 Telas de login e primeiro acesso seguro (US 3.1).

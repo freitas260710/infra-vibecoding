@@ -25,13 +25,20 @@ A tabela de usuário (US 2.4) usa AdminUsuarioSeguro, que também troca a senha 
 
 Criar usuário pela tela de banco (US 3.1): só e-mail e nome. O usuário nasce sem senha e recebe o link de
 primeiro acesso por e-mail. A ação "Enviar link de acesso por e-mail" reenvia o link para os selecionados.
+
+Ninguém define a senha de outra pessoa (US 3.1a, 0.2.1): a edição de usuário só mostra se a senha já foi definida,
+sem botão para definir; o endereço de definir senha de outro usuário responde 403 e fica registrado. "Alterar
+senha" no topo da tela de banco leva para a tela de trocar a própria senha do 00.
 """
 from functools import wraps
 
 from django import forms
 from django.contrib import admin, messages
 from django.contrib.auth.admin import UserAdmin
-from django.contrib.auth.forms import AdminPasswordChangeForm, UserChangeForm
+from django.contrib.auth.forms import ReadOnlyPasswordHashField, UserChangeForm
+from django.contrib.auth.hashers import UNUSABLE_PASSWORD_PREFIX
+from django.core.exceptions import PermissionDenied
+from django.shortcuts import redirect
 
 from .dados import ModeloSeguro, _leitura_da_tela_de_banco, log
 
@@ -136,31 +143,49 @@ def _formulario_criacao(modelo):
     return FormularioCriacao
 
 
+class _SituacaoDaSenha(forms.Widget):
+    """Mostra só se a senha já foi definida. Sem botão: ninguém define a senha de outra pessoa."""
+
+    template_name = "infra_vibecoding/admin/situacao_da_senha.html"
+    read_only = True
+
+    def get_context(self, name, value, attrs):
+        contexto = super().get_context(name, value, attrs)
+        contexto["definida"] = bool(value) and not str(value).startswith(UNUSABLE_PASSWORD_PREFIX)
+        return contexto
+
+    def id_for_label(self, id_):
+        return None
+
+
+class _CampoSituacaoDaSenha(ReadOnlyPasswordHashField):
+    widget = _SituacaoDaSenha
+
+
 def _formulario_edicao(modelo):
     class FormularioEdicao(UserChangeForm):
+        password = _CampoSituacaoDaSenha(label="Senha")
+
         class Meta(UserChangeForm.Meta):
             model = modelo
             fields = "__all__"
 
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            if "password" in self.fields:
+                self.fields["password"].help_text = ""
+
     return FormularioEdicao
 
 
-class _FormularioTrocaSenha(AdminPasswordChangeForm):
-    """Troca de senha pela tela de banco: grava como sistema, com registro."""
-
-    motivo = "admin: troca de senha"
-
-    def save(self, commit=True):
-        usuario = super().save(commit=False)
-        if commit:
-            usuario.salvar_como_sistema(f"{self.motivo} de {usuario.get_username()}")
-        return usuario
+def trocar_propria_senha(request, extra_context=None):
+    """"Alterar senha" do topo da tela de banco: vai para a tela de trocar a senha do 00 (pede a senha atual)."""
+    return redirect("trocar_senha")
 
 
 class AdminUsuarioSeguro(AdminSeguro, UserAdmin):
     """Tela de banco da tabela de usuário (login por e-mail), passando pelo 00 como as outras."""
 
-    change_password_form = _FormularioTrocaSenha
     ordering = ("email",)
     list_display = ("email", "nome", "is_staff", "is_active")
     list_filter = ("is_staff", "is_superuser", "is_active")
@@ -188,6 +213,14 @@ class AdminUsuarioSeguro(AdminSeguro, UserAdmin):
 
             enviar_link_de_senha(request, obj)
             self.message_user(request, f"Link de primeiro acesso enviado para {obj.email}.", messages.SUCCESS)
+
+    def user_change_password(self, request, id, form_url=""):
+        """Definir a senha de outra pessoa pela tela de banco: bloqueado (D43)."""
+        log.warning("%s", _motivo(request, f"tentou definir a senha do usuário {id} pela tela de banco (bloqueado)"))
+        raise PermissionDenied(
+            "Ninguém define a senha de outra pessoa. Use a ação 'Enviar link de acesso por e-mail' na lista de "
+            "usuários: a pessoa define a própria senha pelo link."
+        )
 
     @admin.action(description="Enviar link de acesso por e-mail")
     def enviar_link_de_acesso(self, request, queryset):

@@ -16,3 +16,13 @@ class InfraVibecodingConfig(AppConfig):
 
         # Carrega o politicas.py de cada app do sistema.
         autodiscover_modules("politicas")
+
+        # "Alterar senha" do topo da tela de banco usa a tela de trocar a senha do 00 (0.2.1).
+        from django.apps import apps
+
+        if apps.is_installed("django.contrib.admin"):
+            from django.contrib import admin
+
+            from .admin import trocar_propria_senha
+
+            admin.site.password_change = trocar_propria_senha

@@ -246,3 +246,40 @@ def conferir_checagens_silenciadas(silenciadas):
             + ", ".join(proibidas)
             + ". Checagens SEC.* não podem ser silenciadas. Corrija a causa do erro."
         )
+
+
+# Tabela de usuário e login (US 2.4)
+
+_BACKEND_00 = "infra_vibecoding.autenticacao.BackendSeguro"
+_BACKEND_DJANGO = "django.contrib.auth.backends.ModelBackend"
+
+
+@register(Tags.security)
+def sec08_usuario_seguro(app_configs=None, **kwargs):
+    from django.contrib.auth import get_user_model
+
+    from .usuarios import UsuarioSeguro
+
+    erros = []
+    try:
+        modelo = get_user_model()
+    except Exception:  # AUTH_USER_MODEL apontando para tabela que não existe: o próprio Django acusa
+        return erros
+    if not issubclass(modelo, UsuarioSeguro):
+        erros.append(Error(
+            f"A tabela de usuário ({modelo._meta.label}) não herda de UsuarioSeguro: ficaria sem trava.",
+            hint=(
+                "Crie o app 'contas' com 'class Usuario(UsuarioSeguro): pass' "
+                "(from infra_vibecoding.usuarios import UsuarioSeguro) e coloque "
+                "AUTH_USER_MODEL = 'contas.Usuario' no settings.py, antes da primeira migração."
+            ),
+            id="SEC.E081",
+        ))
+    backends = list(getattr(settings, "AUTHENTICATION_BACKENDS", []))
+    if _BACKEND_00 not in backends or _BACKEND_DJANGO in backends:
+        erros.append(Error(
+            "AUTHENTICATION_BACKENDS precisa usar o login do 00 e não o padrão do Django.",
+            hint=f"Não redefina AUTHENTICATION_BACKENDS: ele vem do 00 como ['{_BACKEND_00}'].",
+            id="SEC.E082",
+        ))
+    return erros

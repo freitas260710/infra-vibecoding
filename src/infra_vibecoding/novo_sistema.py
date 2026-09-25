@@ -172,8 +172,11 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 ROOT_URLCONF = "config.urls"
 WSGI_APPLICATION = "config.wsgi.application"
 
-# Apps do sistema entram aqui, depois dos que vêm do 00. Ex.: + ["nucleo", "atendimento"]
-INSTALLED_APPS = INSTALLED_APPS + []
+# Apps do sistema entram aqui, depois dos que vêm do 00. Ex.: + ["contas", "nucleo", "atendimento"]
+INSTALLED_APPS = INSTALLED_APPS + ["contas"]
+
+# Tabela de usuário do sistema (herda do 00: login por e-mail e trava de leitura). Não trocar depois.
+AUTH_USER_MODEL = "contas.Usuario"
 
 TEMPLATES[0]["DIRS"] = [BASE_DIR / "templates"]
 
@@ -311,6 +314,7 @@ def test_configuracoes_vem_do_00():
     assert settings.AMBIENTE == "dev"
     assert "infra_vibecoding" in settings.INSTALLED_APPS
     assert "django.contrib.auth.middleware.LoginRequiredMiddleware" in settings.MIDDLEWARE
+    assert settings.AUTH_USER_MODEL == "contas.Usuario"
 
 
 @pytest.mark.django_db
@@ -326,8 +330,32 @@ def test_tela_de_entrar_abre_sem_login():
 
 
 @pytest.mark.django_db
+def test_login_pelo_email():
+    get_user_model().objects.create_user("ana@exemplo.com", password=SENHA)
+    assert Client().login(email="ana@exemplo.com", password=SENHA)
+    assert not Client().login(email="ana@exemplo.com", password=SENHA + "-errada")
+
+
+@pytest.mark.django_db
+def test_tela_de_entrar_com_email():
+    get_user_model().objects.create_user("ana@exemplo.com", password=SENHA)
+    cliente = Client()
+    resposta = cliente.post("/entrar/", {"username": "ana@exemplo.com", "password": SENHA})
+    assert resposta.status_code == 302 and resposta["Location"] == "/"
+    assert cliente.get("/").status_code == 200
+
+
+@pytest.mark.django_db
+def test_tabela_de_usuario_tem_trava():
+    from infra_vibecoding.dados import AcessoSemEscopo
+
+    with pytest.raises(AcessoSemEscopo):
+        list(get_user_model().objects.all())
+
+
+@pytest.mark.django_db
 def test_logado_ve_a_inicial():
-    usuario = get_user_model().objects.create_user("ana", password=SENHA)
+    usuario = get_user_model().objects.create_user("ana@exemplo.com", password=SENHA)
     cliente = Client()
     cliente.force_login(usuario)
     assert cliente.get("/").status_code == 200
@@ -336,7 +364,7 @@ def test_logado_ve_a_inicial():
 @pytest.mark.django_db
 def test_admin_nao_fica_no_endereco_padrao():
     cliente = Client()
-    cliente.force_login(get_user_model().objects.create_superuser("root", password=SENHA))
+    cliente.force_login(get_user_model().objects.create_superuser("root@exemplo.com", password=SENHA))
     assert cliente.get("/admin/").status_code == 404
 '''
 
@@ -386,7 +414,12 @@ uv run python manage.py check
 ## Endereços
 
 - `/entrar/` e `/sair/`: provisórios, até as telas de conta do 00 (etapa 3).
-- `/__ADMIN__/`: tela de banco (admin).
+- `/__ADMIN__/`: tela de banco (admin). O login é pelo e-mail.
+
+## Usuários
+
+A tabela de usuário é `contas.Usuario` (herda do 00). Para criar o primeiro administrador:
+`uv run python manage.py createsuperuser`.
 '''
 
 _CLAUDE = '''
@@ -409,6 +442,13 @@ siga todas: acertar de primeira é mais rápido do que esbarrar numa checagem.
 - `como_sistema("motivo")` ignora as regras (igual ao "ignore privacy rules" do Bubble). Só usar com
   autorização explícita do Ed, com motivo claro. Fica registrado.
 - Proibido: SQL escrito à mão (`raw`, `connection.cursor`, `extra`).
+
+## Usuários
+- A tabela de usuário é `contas.Usuario`, que herda de `UsuarioSeguro` do 00: login pelo e-mail, mesma trava das
+  outras tabelas. Campos do sistema (ex.: empresa) entram em `contas/models.py`.
+- Nunca usar `django.contrib.auth.models.User`. Para se referir ao usuário: `settings.AUTH_USER_MODEL` em campos e
+  `get_user_model()` no código. Ler usuários com `.para(request.user)`, como qualquer tabela.
+- Criar usuário: `Usuario.objects.create_user(email, senha)`. Nunca trocar `AUTH_USER_MODEL`.
 
 ## Telas
 - Toda tela declara quem pode abrir, com `infra_vibecoding.telas`: `@publica`, `@logado` ou
@@ -444,6 +484,157 @@ siga todas: acertar de primeira é mais rápido do que esbarrar numa checagem.
 - Se um passo falhar ou uma checagem SEC.* barrar, parar e relatar. Nunca contornar.
 '''
 
+_CONTAS_INIT = '''
+'''
+
+_CONTAS_APPS = '''
+from django.apps import AppConfig
+
+
+class ContasConfig(AppConfig):
+    name = "contas"
+    verbose_name = "Contas"
+'''
+
+_CONTAS_MODELS = '''
+"""
+Tabela de usuário do sistema. Herda do Infra Vibecoding: login pelo e-mail e a mesma trava das outras tabelas.
+Os campos do sistema (ex.: empresa) entram aqui. Não trocar AUTH_USER_MODEL depois de criado.
+"""
+from infra_vibecoding.usuarios import UsuarioSeguro
+
+
+class Usuario(UsuarioSeguro):
+    pass
+'''
+
+_CONTAS_POLITICAS = '''
+"""Regra da tabela de usuário. Começa fechada: cada um vê e edita só a si mesmo."""
+from infra_vibecoding.dados import Politica, politica
+
+from .models import Usuario
+
+
+@politica(Usuario)
+class PoliticaUsuario(Politica):
+    def escopo(self, usuario, qs):
+        return qs.filter(pk=usuario.pk)
+
+    def pode(self, usuario, acao, obj=None):
+        return acao == "editar" and obj is not None and obj.pk == usuario.pk
+'''
+
+_CONTAS_ADMIN = '''
+from django.contrib import admin
+
+from infra_vibecoding.admin import AdminUsuarioSeguro
+
+from .models import Usuario
+
+admin.site.register(Usuario, AdminUsuarioSeguro)
+'''
+
+_CONTAS_MIGRACOES_INIT = '''
+'''
+
+_CONTAS_MIGRACAO_0001 = '''
+# Criada pelo comando novo-sistema do Infra Vibecoding (tabela de usuário do sistema).
+
+import django.utils.timezone
+from django.db import migrations, models
+
+
+class Migration(migrations.Migration):
+
+    initial = True
+
+    dependencies = [
+        ("auth", "0012_alter_user_first_name_max_length"),
+    ]
+
+    operations = [
+        migrations.CreateModel(
+            name="Usuario",
+            fields=[
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("password", models.CharField(max_length=128, verbose_name="password")),
+                (
+                    "last_login",
+                    models.DateTimeField(
+                        blank=True, null=True, verbose_name="last login"
+                    ),
+                ),
+                (
+                    "is_superuser",
+                    models.BooleanField(
+                        default=False,
+                        help_text="Designates that this user has all permissions without explicitly assigning them.",
+                        verbose_name="superuser status",
+                    ),
+                ),
+                (
+                    "email",
+                    models.EmailField(
+                        max_length=254, unique=True, verbose_name="e-mail"
+                    ),
+                ),
+                (
+                    "nome",
+                    models.CharField(blank=True, max_length=150, verbose_name="nome"),
+                ),
+                ("is_active", models.BooleanField(default=True, verbose_name="ativo")),
+                (
+                    "is_staff",
+                    models.BooleanField(
+                        default=False, verbose_name="acessa a tela de banco"
+                    ),
+                ),
+                (
+                    "date_joined",
+                    models.DateTimeField(
+                        default=django.utils.timezone.now, verbose_name="criado em"
+                    ),
+                ),
+                (
+                    "groups",
+                    models.ManyToManyField(
+                        blank=True,
+                        help_text="The groups this user belongs to. A user will get all permissions granted to each of their groups.",
+                        related_name="user_set",
+                        related_query_name="user",
+                        to="auth.group",
+                        verbose_name="groups",
+                    ),
+                ),
+                (
+                    "user_permissions",
+                    models.ManyToManyField(
+                        blank=True,
+                        help_text="Specific permissions for this user.",
+                        related_name="user_set",
+                        related_query_name="user",
+                        to="auth.permission",
+                        verbose_name="user permissions",
+                    ),
+                ),
+            ],
+            options={
+                "verbose_name": "usuário",
+                "verbose_name_plural": "usuários",
+                "abstract": False,
+            },
+        ),
+    ]
+'''
+
 _MODELOS = {
     "pyproject.toml": _PYPROJECT,
     ".python-version": _PYTHON_VERSION,
@@ -458,6 +649,13 @@ _MODELOS = {
     "templates/base.html": _TPL_BASE,
     "templates/inicio.html": _TPL_INICIO,
     "templates/registration/login.html": _TPL_LOGIN,
+    "contas/__init__.py": _CONTAS_INIT,
+    "contas/apps.py": _CONTAS_APPS,
+    "contas/models.py": _CONTAS_MODELS,
+    "contas/politicas.py": _CONTAS_POLITICAS,
+    "contas/admin.py": _CONTAS_ADMIN,
+    "contas/migrations/__init__.py": _CONTAS_MIGRACOES_INIT,
+    "contas/migrations/0001_initial.py": _CONTAS_MIGRACAO_0001,
     "tests/__init__.py": _TESTS_INIT,
     "tests/test_base.py": _TESTS_BASE,
     ".github/workflows/verificacao.yml": _WORKFLOW,

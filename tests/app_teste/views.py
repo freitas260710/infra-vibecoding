@@ -13,7 +13,7 @@ def inicio(request):
 
 @logado
 def painel(request):
-    return HttpResponse(f"painel de {request.user.username}")
+    return HttpResponse(f"painel de {request.user.get_username()}")
 
 
 @exige("criar", Pedido)

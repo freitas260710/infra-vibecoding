@@ -4,7 +4,8 @@ Configurações de segurança do Infra Vibecoding. Todo sistema herda daqui, com
     from infra_vibecoding.configuracoes import *  # noqa: F401,F403
 
 Depois dessa linha o sistema só preenche o que é dele: BASE_DIR, ROOT_URLCONF, os próprios apps
-(INSTALLED_APPS = INSTALLED_APPS + ["meu_app"]), banco de dados e textos. Enfraquecer qualquer item de
+(INSTALLED_APPS = INSTALLED_APPS + ["meu_app"]), a tabela de usuário (AUTH_USER_MODEL, que herda de
+infra_vibecoding.usuarios.UsuarioSeguro), banco de dados e textos. Enfraquecer qualquer item de
 segurança faz o sistema não ligar (checagens SEC.E01x e SEC.E06x).
 
 Modos (variável de ambiente AMBIENTE):
@@ -79,6 +80,9 @@ USE_TZ = True
 LANGUAGE_CODE = "pt-br"
 TIME_ZONE = "America/Sao_Paulo"
 STATIC_URL = "static/"
+
+# Login: pelo backend do 00, que carrega o usuário sem abrir a tabela (a tabela de usuário tem trava).
+AUTHENTICATION_BACKENDS = ["infra_vibecoding.autenticacao.BackendSeguro"]
 
 # Senhas: guardadas com Argon2 (o método mais forte disponível), nunca a senha em si.
 PASSWORD_HASHERS = [

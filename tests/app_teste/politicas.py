@@ -1,6 +1,6 @@
 from infra_vibecoding.dados import Politica, politica
 
-from .models import AcessoSetor, Documento, ItemPedido, Pedido, Rascunho, Setor
+from .models import AcessoSetor, Documento, ItemPedido, Pedido, Rascunho, Setor, UsuarioTeste
 
 
 @politica(Pedido)
@@ -56,4 +56,15 @@ class PoliticaDocumento(Politica):
                 usuario=usuario, setor_id=obj.setor_id, pode_editar=True
             ).exists()
         return False
+
+
+# US 2.4: tabela de usuário. Cada um vê e edita só a si mesmo.
+
+@politica(UsuarioTeste)
+class PoliticaUsuario(Politica):
+    def escopo(self, usuario, qs):
+        return qs.filter(pk=usuario.pk)
+
+    def pode(self, usuario, acao, obj=None):
+        return acao == "editar" and obj is not None and obj.pk == usuario.pk
 

@@ -45,6 +45,7 @@ _REGISTRO = {}
 _AUTORIZADOS = ContextVar("infra_vibecoding_autorizados", default=frozenset())
 _MODO_SISTEMA = ContextVar("infra_vibecoding_modo_sistema", default=False)
 _EM_REGRA = ContextVar("infra_vibecoding_em_regra", default=False)
+_VALIDANDO_UNICOS = ContextVar("infra_vibecoding_validando_unicos", default=False)
 
 
 class AcessoSemEscopo(Exception):
@@ -167,6 +168,15 @@ def _rodando_regra():
         _EM_REGRA.reset(token)
 
 
+@contextmanager
+def _validando_unicos():
+    token = _VALIDANDO_UNICOS.set(True)
+    try:
+        yield
+    finally:
+        _VALIDANDO_UNICOS.reset(token)
+
+
 def _autorizado(obj):
     return _MODO_SISTEMA.get() or id(obj) in _AUTORIZADOS.get()
 
@@ -185,6 +195,8 @@ class QuerySetSeguro(models.QuerySet):
 
     def _exigir_escopo(self):
         if self._escopo is None:
+            if _VALIDANDO_UNICOS.get():
+                return  # conferência de valor repetido (ex.: e-mail já usado): só responde sim ou não
             raise AcessoSemEscopo(
                 f"{self.model.__name__}: leitura sem dizer para quem. "
                 f"Use {self.model.__name__}.objects.para(usuario) ou "
@@ -318,6 +330,16 @@ class ModeloSeguro(models.Model):
         abstract = True
         # Relações diretas (item.pedido) e exclusões em cascata usam o manager base do Django,
         # sem trava, porque partem de um registro que já foi autorizado.
+
+    # Conferência de campos únicos (ex.: "este e-mail já existe?") feita pelos formulários do Django.
+    # É uma leitura que só responde sim ou não, então é liberada durante a conferência (US 2.4).
+    def validate_unique(self, exclude=None):
+        with _validando_unicos():
+            return super().validate_unique(exclude=exclude)
+
+    def validate_constraints(self, exclude=None):
+        with _validando_unicos():
+            return super().validate_constraints(exclude=exclude)
 
     def _versao_no_banco(self):
         return type(self)._base_manager.using(self._state.db or "default").filter(pk=self.pk).first()

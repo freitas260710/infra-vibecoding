@@ -8,4 +8,5 @@ BASE_DIR = Path(__file__).resolve().parent
 INSTALLED_APPS = INSTALLED_APPS + ["tests.app_teste"]
 ROOT_URLCONF = "tests.urls"
 LOGIN_URL = "/entrar/"
+AUTH_USER_MODEL = "app_teste.UsuarioTeste"
 DATABASES = {"default": {"ENGINE": "django.db.backends.sqlite3", "NAME": ":memory:"}}

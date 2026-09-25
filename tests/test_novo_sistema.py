@@ -61,6 +61,16 @@ def test_settings_herda_do_00_na_primeira_linha_de_codigo(sistema):
     assert codigo[0] == "from infra_vibecoding.configuracoes import *  # noqa: F401,F403"
 
 
+def test_sistema_nasce_com_usuario_seguro(sistema):
+    settings = (sistema / "config/settings.py").read_text()
+    assert 'AUTH_USER_MODEL = "contas.Usuario"' in settings
+    assert 'INSTALLED_APPS + ["contas"]' in settings
+    assert "class Usuario(UsuarioSeguro)" in (sistema / "contas/models.py").read_text()
+    assert "@politica(Usuario)" in (sistema / "contas/politicas.py").read_text()
+    assert "AdminUsuarioSeguro" in (sistema / "contas/admin.py").read_text()
+    assert (sistema / "contas/migrations/0001_initial.py").exists()
+
+
 def test_versao_do_00_fixa_e_igual_no_pyproject_e_no_portao(sistema):
     tag = f"v{__version__}"
     pyproject = (sistema / "pyproject.toml").read_text()
@@ -87,7 +97,7 @@ def test_workflow_do_sistema_so_chama_o_portao_do_00(sistema):
 def test_claude_md_tem_as_regras(sistema):
     texto = (sistema / "CLAUDE.md").read_text()
     for trecho in ("ModeloSeguro", "@politica", ".para(request.user)", "@exige", "AdminSeguro",
-                   "SILENCED_SYSTEM_CHECKS", "como_sistema", "self.consultar", __version__):
+                   "SILENCED_SYSTEM_CHECKS", "como_sistema", "self.consultar", "contas.Usuario", __version__):
         assert trecho in texto
 
 
@@ -125,7 +135,7 @@ def test_sistema_gerado_sem_migracao_pendente(sistema):
 def test_testes_do_sistema_gerado_passam(sistema):
     r = rodar(sistema, "-m", "pytest", "-q", "-p", "no:cacheprovider")
     assert r.returncode == 0, r.stdout + r.stderr
-    assert "6 passed" in r.stdout
+    assert "9 passed" in r.stdout
 
 
 def test_tabela_sem_trava_no_sistema_gerado_nao_liga(tmp_path):
@@ -137,7 +147,7 @@ def test_tabela_sem_trava_no_sistema_gerado_nao_liga(tmp_path):
         "from django.db import models\n\n\nclass Produto(models.Model):\n    nome = models.CharField(max_length=50)\n"
     )
     settings = pasta / "config/settings.py"
-    settings.write_text(settings.read_text().replace("INSTALLED_APPS + []", 'INSTALLED_APPS + ["loja"]'))
+    settings.write_text(settings.read_text().replace('INSTALLED_APPS + ["contas"]', 'INSTALLED_APPS + ["contas", "loja"]'))
     r = rodar(pasta, "manage.py", "check")
     assert r.returncode != 0
     assert "SEC.E021" in r.stdout + r.stderr

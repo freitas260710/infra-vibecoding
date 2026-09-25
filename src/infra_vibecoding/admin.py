@@ -14,14 +14,22 @@ Uso no sistema (arquivo admin.py do app):
     from .models import Pedido
 
     admin.site.register(Pedido, AdminSeguro)
+
+A tabela de usuário (US 2.4) usa AdminUsuarioSeguro, que também troca a senha como sistema:
+
+    from infra_vibecoding.admin import AdminUsuarioSeguro
+    admin.site.register(Usuario, AdminUsuarioSeguro)
 """
 from django.contrib import admin
+from django.contrib.auth.admin import UserAdmin
+from django.contrib.auth.forms import AdminPasswordChangeForm, AdminUserCreationForm, UserChangeForm
 
 from .dados import ModeloSeguro
 
 
 def _motivo(request, acao):
-    usuario = getattr(request.user, "username", None) or getattr(request.user, "pk", "?")
+    usuario = request.user.get_username() if hasattr(request.user, "get_username") else None
+    usuario = usuario or getattr(request.user, "pk", "?")
     return f"admin: {usuario} {acao}"
 
 
@@ -81,3 +89,61 @@ class InlineTabularSeguro(_InlineSeguroBase, admin.TabularInline):
 
 class InlineEmpilhadoSeguro(_InlineSeguroBase, admin.StackedInline):
     pass
+
+
+# Tabela de usuário (US 2.4)
+
+def _formulario_criacao(modelo):
+    class FormularioCriacao(AdminUserCreationForm):
+        class Meta(AdminUserCreationForm.Meta):
+            model = modelo
+            fields = ("email",)
+
+    return FormularioCriacao
+
+
+def _formulario_edicao(modelo):
+    class FormularioEdicao(UserChangeForm):
+        class Meta(UserChangeForm.Meta):
+            model = modelo
+            fields = "__all__"
+
+    return FormularioEdicao
+
+
+class _FormularioTrocaSenha(AdminPasswordChangeForm):
+    """Troca de senha pela tela de banco: grava como sistema, com registro."""
+
+    motivo = "admin: troca de senha"
+
+    def save(self, commit=True):
+        usuario = super().save(commit=False)
+        if commit:
+            usuario.salvar_como_sistema(f"{self.motivo} de {usuario.get_username()}")
+        return usuario
+
+
+class AdminUsuarioSeguro(AdminSeguro, UserAdmin):
+    """Tela de banco da tabela de usuário (login por e-mail), passando pelo 00 como as outras."""
+
+    change_password_form = _FormularioTrocaSenha
+    ordering = ("email",)
+    list_display = ("email", "nome", "is_staff", "is_active")
+    list_filter = ("is_staff", "is_superuser", "is_active")
+    search_fields = ("email", "nome")
+    readonly_fields = ("last_login", "date_joined")
+    fieldsets = (
+        (None, {"fields": ("email", "password")}),
+        ("Dados", {"fields": ("nome",)}),
+        ("Permissões", {"fields": ("is_active", "is_staff", "is_superuser", "groups", "user_permissions")}),
+        ("Datas", {"fields": ("last_login", "date_joined")}),
+    )
+    add_fieldsets = (
+        (None, {"classes": ("wide",), "fields": ("email", "usable_password", "password1", "password2")}),
+    )
+
+    def get_form(self, request, obj=None, **kwargs):
+        if "form" not in kwargs:
+            kwargs["form"] = _formulario_criacao(self.model) if obj is None else _formulario_edicao(self.model)
+        return super().get_form(request, obj, **kwargs)
+

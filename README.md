@@ -8,7 +8,7 @@ Todo sistema importa este pacote. O sistema escreve só o negócio (tabelas, reg
 
 Referência mínima: tudo que o Bubble.io entrega de segurança por padrão, com a diferença de que aqui o padrão é fechado.
 
-Status: versão 0.1.2, núcleo, comando de criar sistema e regras que consultam outras tabelas. Ainda não usar em produção (faltam contas e login, arquivos, jobs, registros e o portão de deploy).
+Status: versão 0.1.3, núcleo, comando de criar sistema, regras que consultam outras tabelas e usuário seguro com login pelo e-mail. Ainda não usar em produção (faltam contas e login, arquivos, jobs, registros e o portão de deploy).
 
 ## O que o 00 faz hoje
 
@@ -18,6 +18,7 @@ Status: versão 0.1.2, núcleo, comando de criar sistema e regras que consultam 
 - Configurações de segurança herdadas: senha com Argon2, cookies protegidos, HTTPS e HSTS em produção, cabeçalhos de proteção, chave secreta obrigatória em produção.
 - Tela de banco (admin) protegida: só administrador, tudo como sistema e registrado, endereço próprio.
 - Checagens `SEC.*`: o sistema não liga se alguma trava for esquecida ou enfraquecida.
+- Usuário seguro: a tabela de usuário de cada sistema herda de `UsuarioSeguro`, com login pelo e-mail e a mesma trava das outras tabelas. Checagens SEC.E081 e SEC.E082.
 - Ninguém silencia as checagens `SEC.*`: se `SILENCED_SYSTEM_CHECKS` tiver alguma, o sistema não liga.
 - Verificação automática no GitHub a cada envio.
 - Comando que cria um sistema novo já dentro do 00, e portão que os sistemas chamam sem copiar.
@@ -27,10 +28,10 @@ Status: versão 0.1.2, núcleo, comando de criar sistema e regras que consultam 
 Na pasta onde o sistema vai ficar:
 
 ```
-uvx --from "git+https://github.com/freitas260710/infra-vibecoding@v0.1.2" infra-vibecoding novo-sistema NOME
+uvx --from "git+https://github.com/freitas260710/infra-vibecoding@v0.1.3" infra-vibecoding novo-sistema NOME
 ```
 
-O sistema nasce com o 00 na mesma versão do comando (fixa no `pyproject.toml`), `settings.py` herdando as configurações de segurança, login obrigatório, admin num endereço próprio, `CLAUDE.md` com as regras para a IA e a verificação no GitHub chamando o portão do 00 (`.github/workflows/portao.yml`). Depois:
+O sistema nasce com o 00 na mesma versão do comando (fixa no `pyproject.toml`), a tabela de usuário segura (app `contas`, login pelo e-mail), `settings.py` herdando as configurações de segurança, login obrigatório, admin num endereço próprio, `CLAUDE.md` com as regras para a IA e a verificação no GitHub chamando o portão do 00 (`.github/workflows/portao.yml`). Depois:
 
 ```
 cd NOME
@@ -43,13 +44,26 @@ uv run pytest
 O comando acima já faz a instalação e a ligação. Para referência, a instalação numa versão fixa é:
 
 ```
-uv add "infra-vibecoding @ git+https://github.com/freitas260710/infra-vibecoding@v0.1.2"
+uv add "infra-vibecoding @ git+https://github.com/freitas260710/infra-vibecoding@v0.1.3"
 ```
 
 No `settings.py`, primeira linha:
 
 ```python
 from infra_vibecoding.configuracoes import *  # noqa: F401,F403
+```
+
+A tabela de usuário (o comando já cria):
+
+```python
+# contas/models.py
+from infra_vibecoding.usuarios import UsuarioSeguro
+
+class Usuario(UsuarioSeguro):
+    pass  # campos do sistema aqui
+
+# settings.py
+AUTH_USER_MODEL = "contas.Usuario"
 ```
 
 Uma tabela e a regra dela:

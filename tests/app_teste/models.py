@@ -2,6 +2,11 @@ from django.conf import settings
 from django.db import models
 
 from infra_vibecoding.dados import ModeloSeguro
+from infra_vibecoding.usuarios import UsuarioSeguro
+
+
+class UsuarioTeste(UsuarioSeguro):
+    """Tabela de usuário dos testes do 00 (US 2.4)."""
 
 
 class Pedido(ModeloSeguro):

@@ -1,5 +1,17 @@
 # Histórico de versões
 
+## 0.1.3
+
+Usuário seguro e login pelo e-mail.
+
+- `UsuarioSeguro` (`infra_vibecoding.usuarios`): base da tabela de usuário de todo sistema. Login pelo e-mail (sempre em minúsculas), mesma trava das outras tabelas (listar ou buscar usuários sem dizer para quem dá erro), precisa de política. `create_user` e `create_superuser` ficam registrados.
+- Login pelo backend do 00 (`infra_vibecoding.autenticacao.BackendSeguro`), que carrega o usuário da sessão sem abrir a tabela. Só a data do último login e a atualização do método de guardar a senha gravam sem dizer quem.
+- Tela de banco da tabela de usuário (`AdminUsuarioSeguro`), com criação e troca de senha como sistema e registradas.
+- Conferência de campos únicos (ex.: e-mail repetido) funciona nos formulários sem abrir a trava.
+- Checagens SEC.E081 (tabela de usuário precisa herdar de UsuarioSeguro) e SEC.E082 (login precisa ser o do 00).
+- O comando novo-sistema cria o app `contas` com a tabela de usuário, a regra, a tela de banco e a migração.
+- 199 testes automáticos.
+
 ## 0.1.2
 
 Regras que consultam outras tabelas.

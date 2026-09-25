@@ -1,6 +1,7 @@
 from django.http import HttpResponse
 from django.views import View
 
+from infra_vibecoding.limites import limite
 from infra_vibecoding.telas import exige, logado, publica
 
 from .models import Pedido
@@ -41,3 +42,17 @@ class RelatorioView(View):
 def esquecida(request):
     """Tela sem declaração: só aparece no urls_sem_declaracao.py dos testes."""
     return HttpResponse("aberta?")
+
+
+# US 3.3: ações do negócio com limite apertado.
+@publica
+@limite(por_minuto=3)
+def exportar(request):
+    return HttpResponse("exportado")
+
+
+@publica
+@limite(por_minuto=2)
+class Relatorio2View(View):
+    def get(self, request):
+        return HttpResponse("relatório pesado")

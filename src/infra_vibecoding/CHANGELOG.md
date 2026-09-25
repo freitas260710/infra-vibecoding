@@ -1,5 +1,18 @@
 # Histórico de versões
 
+## 0.2.5
+
+Proteção contra força bruta em tudo (US 3.3, decisão D50).
+
+- Limite geral em todo pedido, ligado pelo 00 (`infra_vibecoding.limites.LimiteDePedidos` no MIDDLEWARE): até 120 pedidos por minuto por visitante (endereço de internet) e 240 por usuário logado. Passou: página "Muitas tentativas" (código 429), com registro.
+- Login: 5 senhas erradas para o mesmo e-mail em 15 minutos bloqueiam aquele e-mail por 15 minutos; 20 tentativas erradas do mesmo endereço em 15 minutos bloqueiam o endereço. Vale também para a tela de banco. O bloqueio é temporário e não revela se o e-mail existe; "Esqueci a senha" continua funcionando.
+- `@limite(por_minuto=N)` para o sistema apertar ações pesadas do negócio.
+- O sistema pode apertar os limites gerais (`LIMITE_PEDIDOS_POR_ENDERECO`, `LIMITE_PEDIDOS_POR_USUARIO`), nunca afrouxar. Checagens SEC.E066 (limite ligado e na ordem) e SEC.E067 (sem afrouxar).
+- Em produção, a contagem fica no banco (`DatabaseCache`, tabela criada na publicação com `createcachetable`, etapa 8). Atenção para a etapa 8: atrás do servidor de publicação, o endereço de internet verdadeiro precisa ser lido do cabeçalho do proxy confiável, senão todos os visitantes contam como um só.
+- Nos testes automáticos dos sistemas, os limites gerais e o bloqueio de login ficam desligados.
+- Ao atualizar para esta versão: nenhuma migração, nenhum ajuste de código. Se o sistema redefinir MIDDLEWARE, ele não liga (SEC.E066): usar o MIDDLEWARE do 00.
+- 317 testes automáticos.
+
 ## 0.2.4
 
 Manual da IA dentro do 00 (US 3.2b).

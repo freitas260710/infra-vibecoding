@@ -20,6 +20,17 @@ class FormularioEntrar(AuthenticationForm):
         self.fields["username"].label = "E-mail"
         self.fields["password"].label = "Senha"
 
+    def clean(self):
+        from ..limites import login_bloqueado
+        from ..usuarios import normalizar_email
+
+        if login_bloqueado(normalizar_email(self.data.get("username")), self.request):
+            raise forms.ValidationError(
+                "Muitas tentativas de entrar. Espere 15 minutos e tente de novo, ou use Esqueci a senha.",
+                code="bloqueado",
+            )
+        return super().clean()
+
 
 class FormularioPedirLink(forms.Form):
     email = forms.EmailField(label="E-mail", max_length=254)

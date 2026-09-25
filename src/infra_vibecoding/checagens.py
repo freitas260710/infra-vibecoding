@@ -469,3 +469,31 @@ def garantir_manual_no_claude_md(base=None):
     print(f"Infra Vibecoding: coloquei no CLAUDE.md a linha do manual da IA ({esperada}). Inclua no próximo commit.",
           file=sys.stderr)
     return True
+
+
+# Limite de pedidos (US 3.3)
+
+_MW_LIMITE = "infra_vibecoding.limites.LimiteDePedidos"
+
+
+@register(Tags.security)
+def sec06_limite_de_pedidos(app_configs=None, **kwargs):
+    from .limites import MAXIMO_POR_ENDERECO, MAXIMO_POR_USUARIO
+
+    erros = []
+    mw = list(getattr(settings, "MIDDLEWARE", []))
+    if _MW_LIMITE not in mw or _MW_AUTH not in mw or mw.index(_MW_LIMITE) < mw.index(_MW_AUTH):
+        erros.append(Error(
+            "Limite de pedidos desligado ou fora de ordem: o sistema ficaria aberto a força bruta.",
+            hint=f"Não redefina MIDDLEWARE: '{_MW_LIMITE}' vem do 00, logo depois do AuthenticationMiddleware.",
+            id="SEC.E066",
+        ))
+    if (getattr(settings, "LIMITE_PEDIDOS_POR_ENDERECO", MAXIMO_POR_ENDERECO) > MAXIMO_POR_ENDERECO
+            or getattr(settings, "LIMITE_PEDIDOS_POR_USUARIO", MAXIMO_POR_USUARIO) > MAXIMO_POR_USUARIO):
+        erros.append(Error(
+            "Limite de pedidos afrouxado acima do máximo do 00.",
+            hint=f"O sistema só pode apertar: até {MAXIMO_POR_ENDERECO} por endereço e {MAXIMO_POR_USUARIO} "
+                 "por usuário, por minuto.",
+            id="SEC.E067",
+        ))
+    return erros

@@ -12,4 +12,6 @@ urlpatterns = [
     path("aprovacoes/", views.aprovacoes),
     path("sobre/", views.SobreView.as_view()),
     path("relatorio/", views.RelatorioView.as_view()),
+    path("exportar/", views.exportar),
+    path("relatorio-pesado/", views.Relatorio2View.as_view()),
 ]

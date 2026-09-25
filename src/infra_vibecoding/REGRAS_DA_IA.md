@@ -58,6 +58,14 @@ quebradas. Mesmo assim, siga todas: acertar de primeira é mais rápido do que e
 - Telas feitas com templates do Django e HTMX.
 - Proibido: `@csrf_exempt`, `mark_safe`, `|safe` e `autoescape off` com dado vindo de usuário.
 
+## Limite de pedidos (força bruta)
+- O 00 limita TODO pedido (120 por minuto por visitante, 240 por usuário logado) e bloqueia o login por 15 minutos
+  depois de 5 senhas erradas (SEC.E066). Não redefinir MIDDLEWARE.
+- Ações pesadas do negócio (exportar, enviar muitos e-mails, relatórios grandes) ganham um limite apertado:
+  `@limite(por_minuto=N)` de `infra_vibecoding.limites`. O sistema só aperta: nunca afrouxar o limite do 00 (SEC.E067).
+- Nos testes automáticos os limites ficam desligados. Nunca usar `LIMITES_NOS_TESTES` nem mexer em `mail.outbox`
+  fora dos testes.
+
 ## Tela de banco (admin)
 - Registrar tabelas com `admin.site.register(Tabela, AdminSeguro)` (`infra_vibecoding.admin`) (SEC.E071).
 - O admin fica no endereço próprio definido em `config/urls.py`. Nunca `admin/` (SEC.E072).

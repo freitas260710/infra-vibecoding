@@ -79,6 +79,7 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "infra_vibecoding.limites.LimiteDePedidos",  # limite de pedidos em tudo (US 3.3)
     "django.contrib.auth.middleware.LoginRequiredMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
@@ -183,6 +184,15 @@ X_FRAME_OPTIONS = "DENY"  # não pode ser aberto dentro de outro site
 SECURE_CONTENT_TYPE_NOSNIFF = True
 SECURE_REFERRER_POLICY = "same-origin"
 SECURE_CROSS_ORIGIN_OPENER_POLICY = "same-origin"
+
+# Limite de pedidos (US 3.3): máximos do 00. O sistema pode apertar (valores menores), nunca afrouxar (SEC.E067).
+LIMITE_PEDIDOS_POR_ENDERECO = 120  # por minuto, visitante
+LIMITE_PEDIDOS_POR_USUARIO = 240   # por minuto, usuário logado
+
+# Contagem dos limites: no Mac, na memória; em produção, no banco (vale para todas as cópias do sistema).
+# A tabela do cache é criada na publicação com "manage.py createcachetable" (etapa 8).
+if PRODUCAO:
+    CACHES = {"default": {"BACKEND": "django.core.cache.backends.db.DatabaseCache", "LOCATION": "infra_vibecoding_cache"}}
 
 # Registro das ações sensíveis (leitura e gravação como sistema, acessos negados).
 LOGGING = {

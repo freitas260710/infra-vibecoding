@@ -1,0 +1,20 @@
+{% extends "infra_vibecoding/login/base.html" %}
+{% block titulo %}Defina sua senha{% endblock %}
+{% block conteudo %}
+  {% if link_invalido %}
+    <h1>Link inválido ou vencido</h1>
+    <p>Este link já foi usado ou passou do prazo de 24 horas.</p>
+    <p><a href="{% url 'criar_conta' %}">Começar o cadastro de novo</a></p>
+  {% elif nao_concluido %}
+    <h1>Cadastro não concluído</h1>
+    <p>{{ nao_concluido }}</p>
+    <p><a href="{% url 'entrar' %}">Entrar</a> | <a href="{% url 'criar_conta' %}">Começar o cadastro de novo</a></p>
+  {% else %}
+    <h1>Defina sua senha</h1>
+    <form method="post">
+      {% csrf_token %}
+      {{ form.as_p }}
+      <button type="submit">Criar minha conta</button>
+    </form>
+  {% endif %}
+{% endblock %}

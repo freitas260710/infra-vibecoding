@@ -1,5 +1,17 @@
 # Histórico de versões
 
+## 0.2.3
+
+Manter conectado, lembrar e-mail, derrubar sessões e cadastro público (US 3.2, decisões D47 e D48).
+
+- Tela de entrar: "Manter conectado" (até 30 dias naquele navegador; sem marcar, a sessão acaba ao fechar o navegador e dura no máximo 12 horas) e "Lembrar meu e-mail" (só o e-mail, em cookie assinado que o JavaScript não lê). As duas vêm desmarcadas.
+- Chave de sessão por usuário (campo novo `chave_de_sessao`): todo login fica amarrado a ela e à senha. Os sistemas precisam de uma migração; ao atualizar, todo mundo precisa entrar de novo uma vez.
+- `desconectar(quem_pede, usuarios, request)`: derruba todas as sessões de cada usuário que a regra do sistema permitir (ação "desconectar"), inclusive "manter conectado". A pessoa sempre pode derrubar as próprias. Quem pede continua conectado. Tudo registrado.
+- Tela de trocar a senha com "Sair de todos os meus aparelhos". Tela de banco com a ação "Desconectar de todos os aparelhos".
+- Cadastro público, desligado por padrão (`CADASTRO_PUBLICO`): e-mail, campos do sistema e aceite dos termos de uso e da política de privacidade; link por e-mail (24 horas); a conta só nasce ao definir a senha, com e-mail confirmado, data do aceite (campo novo `termos_aceitos_em`) e o encaixe do sistema (`ao_confirmar`), tudo na mesma transação. Resposta sempre igual, aviso para quem já tem conta, limite de pedidos e campo-armadilha contra robôs.
+- Checagem SEC.E084: cadastro público ligado precisa de uma classe de cadastro do 00 com os endereços dos termos e da política.
+- 287 testes automáticos.
+
 ## 0.2.2
 
 Envio de e-mail com provedor e desvio para a caixa de teste (US 3.1b, decisões D39 e D45).

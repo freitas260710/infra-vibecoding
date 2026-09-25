@@ -190,12 +190,12 @@ class AdminUsuarioSeguro(AdminSeguro, UserAdmin):
     list_display = ("email", "nome", "is_staff", "is_active")
     list_filter = ("is_staff", "is_superuser", "is_active")
     search_fields = ("email", "nome")
-    readonly_fields = ("last_login", "date_joined", "email_confirmado_em")
+    readonly_fields = ("last_login", "date_joined", "email_confirmado_em", "termos_aceitos_em")
     fieldsets = (
         (None, {"fields": ("email", "password")}),
         ("Dados", {"fields": ("nome",)}),
         ("Permissões", {"fields": ("is_active", "is_staff", "is_superuser", "groups", "user_permissions")}),
-        ("Datas", {"fields": ("last_login", "date_joined", "email_confirmado_em")}),
+        ("Datas", {"fields": ("last_login", "date_joined", "email_confirmado_em", "termos_aceitos_em")}),
     )
     add_fieldsets = (
         (None, {
@@ -204,7 +204,7 @@ class AdminUsuarioSeguro(AdminSeguro, UserAdmin):
             "description": "O usuário nasce sem senha e recebe por e-mail o link para definir a própria senha.",
         }),
     )
-    actions = ["enviar_link_de_acesso"]
+    actions = ["enviar_link_de_acesso", "desconectar_de_todos_os_aparelhos"]
 
     def save_model(self, request, obj, form, change):
         super().save_model(request, obj, form, change)
@@ -221,6 +221,21 @@ class AdminUsuarioSeguro(AdminSeguro, UserAdmin):
             "Ninguém define a senha de outra pessoa. Use a ação 'Enviar link de acesso por e-mail' na lista de "
             "usuários: a pessoa define a própria senha pelo link."
         )
+
+    @admin.action(description="Desconectar de todos os aparelhos (derrubar sessões)")
+    def desconectar_de_todos_os_aparelhos(self, request, queryset):
+        from .login.sessoes import trocar_chave_de_sessao
+
+        quantos = 0
+        for usuario in queryset:
+            trocar_chave_de_sessao(usuario, _motivo(request, f"desconectou {usuario.email} (todas as sessões)"))
+            quantos += 1
+            if usuario.pk == request.user.pk:
+                from django.contrib.auth import update_session_auth_hash
+
+                request.user.chave_de_sessao = usuario.chave_de_sessao
+                update_session_auth_hash(request, request.user)
+        self.message_user(request, f"{quantos} usuário(s) desconectado(s) de todos os aparelhos.", messages.SUCCESS)
 
     @admin.action(description="Enviar link de acesso por e-mail")
     def enviar_link_de_acesso(self, request, queryset):

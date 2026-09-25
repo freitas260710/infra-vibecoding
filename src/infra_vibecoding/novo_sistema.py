@@ -212,6 +212,10 @@ NOME_DO_SISTEMA = "__NOME__"
 # Depois de entrar, vai para a tela inicial. Entrar e sair vêm do 00 (não redefinir LOGIN_URL).
 LOGIN_REDIRECT_URL = "inicio"
 
+# Cadastro público (a pessoa cria a própria conta): desligado. Para ligar, aponte para a classe de cadastro do
+# sistema (subclasse de infra_vibecoding.login.cadastro.Cadastro). Ex.: "contas.cadastro.CadastroDoSistema"
+CADASTRO_PUBLICO = None
+
 STATIC_ROOT = BASE_DIR / "staticfiles"
 '''
 
@@ -484,8 +488,13 @@ siga todas: acertar de primeira é mais rápido do que esbarrar numa checagem.
 - Entrar, sair, primeiro acesso, esqueci a senha, trocar a senha e os links do e-mail são telas do 00, ligadas
   em `config/urls.py` com `path("", include("infra_vibecoding.login.urls"))` (SEC.E083). Nunca criar telas de
   login, senha ou link próprias. Não redefinir `LOGIN_URL`.
+- Derrubar sessões de alguém (ex.: dono da empresa desconectando os usuários dela): `desconectar(request.user,
+  usuarios, request)` de `infra_vibecoding.login`. Quem pode desconectar quem fica na política da tabela de usuário
+  (ação "desconectar"). Nunca apagar sessões direto no banco.
+- Cadastro público: desligado. Só ligar com autorização do Ed, pela classe de cadastro (`CADASTRO_PUBLICO`), com
+  os campos a mais e o `ao_confirmar` do sistema. Termos de uso e política de privacidade são obrigatórios.
 - Para mudar só o visual: criar no sistema `templates/infra_vibecoding/login/<tela>.html` (entrar, primeiro_acesso,
-  esqueci_a_senha, definir_senha, trocar_senha, base), mantendo os campos do formulário e o `{% csrf_token %}`.
+  esqueci_a_senha, definir_senha, trocar_senha, criar_conta, cadastro_senha, base), mantendo os campos do formulário e o `{% csrf_token %}`.
 
 ## Telas
 - Toda tela declara quem pode abrir, com `infra_vibecoding.telas`: `@publica`, `@logado` ou
@@ -580,6 +589,7 @@ _CONTAS_MIGRACAO_0001 = '''
 # Criada pelo comando novo-sistema do Infra Vibecoding (tabela de usuário do sistema).
 
 import django.utils.timezone
+import infra_vibecoding.usuarios
 from django.db import migrations, models
 
 
@@ -646,6 +656,21 @@ class Migration(migrations.Migration):
                     "email_confirmado_em",
                     models.DateTimeField(
                         blank=True, null=True, verbose_name="e-mail confirmado em"
+                    ),
+                ),
+                (
+                    "chave_de_sessao",
+                    models.CharField(
+                        default=infra_vibecoding.usuarios.nova_chave_de_sessao,
+                        editable=False,
+                        max_length=64,
+                        verbose_name="chave de sessão",
+                    ),
+                ),
+                (
+                    "termos_aceitos_em",
+                    models.DateTimeField(
+                        blank=True, null=True, verbose_name="termos aceitos em"
                     ),
                 ),
                 (

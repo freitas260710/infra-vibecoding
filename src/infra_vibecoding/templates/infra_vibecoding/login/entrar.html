@@ -10,4 +10,5 @@
   </form>
   <p><a href="{% url 'esqueci_a_senha' %}">Esqueci a senha</a></p>
   <p><a href="{% url 'primeiro_acesso' %}">Primeiro acesso</a></p>
+  {% if cadastro_publico %}<p><a href="{% url 'criar_conta' %}">Criar conta</a></p>{% endif %}
 {% endblock %}

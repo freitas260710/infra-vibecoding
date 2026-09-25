@@ -113,6 +113,9 @@ LOGIN_URL = "entrar"
 LOGIN_REDIRECT_URL = "/"
 LOGOUT_REDIRECT_URL = "entrar"
 NOME_DO_SISTEMA = ""  # aparece no assunto e no texto dos e-mails; o sistema preenche
+# Cadastro público (US 3.2): desligado. Para ligar: CADASTRO_PUBLICO = "app.modulo.ClasseDeCadastro"
+# (subclasse de infra_vibecoding.login.cadastro.Cadastro, com termos_url e privacidade_url; SEC.E084).
+CADASTRO_PUBLICO = None
 
 # E-mails (US 3.1b, D45). O 00 não tem conta em provedor nenhum: cada sistema configura a própria conta nas
 # variáveis de ambiente (ou no .env). Qualquer provedor que aceite SMTP (Brevo, Mailjet, Resend...).

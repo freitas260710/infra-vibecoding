@@ -12,4 +12,9 @@ urlpatterns = [
     path("redefinir-senha/<uidb64>/<token>/", views.DefinirSenhaRedefinir.as_view(),
          name="definir_senha_redefinir"),
     path("trocar-senha/", views.TrocarSenha.as_view(), name="trocar_senha"),
+    path("sair-de-todos/", views.SairDeTodos.as_view(), name="sair_de_todos"),
+    # Cadastro público (desligado por padrão: responde 404 enquanto o sistema não ligar)
+    path("criar-conta/", views.CriarConta.as_view(), name="criar_conta"),
+    path("criar-conta/confirmar/<str:codigo>/", views.ConfirmarCadastro.as_view(), name="confirmar_cadastro"),
+    path("criar-conta/senha/", views.SenhaDoCadastro.as_view(), name="senha_do_cadastro"),
 ]

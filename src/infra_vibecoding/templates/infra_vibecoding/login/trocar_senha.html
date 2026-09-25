@@ -7,4 +7,10 @@
     {{ form.as_p }}
     <button type="submit">Trocar a senha</button>
   </form>
+  <h2>Aparelhos conectados</h2>
+  <p>Saia de todos os outros navegadores e aparelhos onde a sua conta está aberta. Este continua conectado.</p>
+  <form method="post" action="{% url 'sair_de_todos' %}">
+    {% csrf_token %}
+    <button type="submit">Sair de todos os meus aparelhos</button>
+  </form>
 {% endblock %}

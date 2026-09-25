@@ -1,0 +1,10 @@
+{% autoescape off %}Olá{% if usuario.nome %}, {{ usuario.nome }}{% endif %}.
+
+Recebemos um pedido para criar uma conta no {{ sistema }} com este e-mail.
+
+Para confirmar o e-mail, definir a sua senha e concluir o cadastro, abra o link abaixo:
+
+{{ link }}
+
+O link vence em 24 horas. Se você não pediu esta conta, ignore este e-mail: nada será criado.
+{% endautoescape %}

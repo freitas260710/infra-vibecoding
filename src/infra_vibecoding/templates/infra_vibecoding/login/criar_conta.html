@@ -1,0 +1,24 @@
+{% extends "infra_vibecoding/login/base.html" %}
+{% block titulo %}Criar conta{% endblock %}
+{% block conteudo %}
+  <h1>Criar conta</h1>
+  {% if enviado %}
+    <p>Enviamos um link para o e-mail informado. Abra o link para confirmar o e-mail e definir a sua senha. Confira a caixa de entrada e o spam.</p>
+  {% else %}
+    <form method="post">
+      {% csrf_token %}
+      {{ form.non_field_errors }}
+      {% for campo in form %}
+        {% if campo.name == "site" %}
+          <div style="display:none" aria-hidden="true">{{ campo.label_tag }} <input type="text" name="site" tabindex="-1" autocomplete="off"></div>
+        {% elif campo.name == "aceite" %}
+          <p>{{ campo.errors }}{{ campo }} <label for="{{ campo.id_for_label }}">Li e aceito os <a href="{{ termos_url }}" target="_blank" rel="noopener">termos de uso</a> e a <a href="{{ privacidade_url }}" target="_blank" rel="noopener">política de privacidade</a></label></p>
+        {% else %}
+          <p>{{ campo.errors }}{{ campo.label_tag }} {{ campo }}</p>
+        {% endif %}
+      {% endfor %}
+      <button type="submit">Criar conta</button>
+    </form>
+  {% endif %}
+  <p><a href="{% url 'entrar' %}">Já tenho conta</a></p>
+{% endblock %}

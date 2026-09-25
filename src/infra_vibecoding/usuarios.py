@@ -23,15 +23,21 @@ O que muda em relação ao usuário padrão do Django:
 - Usuário criado sem senha nasce com a senha travada (ninguém entra). A pessoa define a própria senha pelo link
   de primeiro acesso enviado por e-mail (US 3.1, infra_vibecoding.login.convidar).
 - email_confirmado_em: preenchido quando a pessoa abre um link recebido no e-mail (prova de que o e-mail é dela).
+- chave_de_sessao (US 3.2): todo login fica amarrado a ela. Trocar a chave derruba todas as sessões do usuário, em
+  todos os aparelhos (infra_vibecoding.login.desconectar).
+- termos_aceitos_em (US 3.2): data em que a pessoa aceitou os termos de uso e a política de privacidade no cadastro
+  público.
 - Gravações liberadas sem dizer quem: só a data do último login (feita pelo próprio login) e a troca do método
   de guardar a senha durante a conferência da senha. Todo o resto usa salvar(usuario) ou salvar_como_sistema.
 """
 import logging
+import secrets
 
 from django.contrib.auth.base_user import AbstractBaseUser, BaseUserManager
 from django.contrib.auth.models import PermissionsMixin
 from django.db import models
 from django.utils import timezone
+from django.utils.crypto import salted_hmac
 
 from .dados import GerenciadorSeguro, ModeloSeguro, _autorizar
 
@@ -76,6 +82,10 @@ class GerenciadorUsuarios(GerenciadorSeguro):
         return self._criar(email, password, "create_superuser", **campos)
 
 
+def nova_chave_de_sessao():
+    return secrets.token_hex(16)
+
+
 # Campos que podem ser gravados sem dizer quem: só a data do último login (o próprio login grava).
 _GRAVACOES_DO_LOGIN = frozenset({"last_login"})
 
@@ -89,6 +99,10 @@ class UsuarioSeguro(ModeloSeguro, AbstractBaseUser, PermissionsMixin):
     is_staff = models.BooleanField("acessa a tela de banco", default=False)
     date_joined = models.DateTimeField("criado em", default=timezone.now)
     email_confirmado_em = models.DateTimeField("e-mail confirmado em", null=True, blank=True)
+    chave_de_sessao = models.CharField(
+        "chave de sessão", max_length=64, default=nova_chave_de_sessao, editable=False
+    )
+    termos_aceitos_em = models.DateTimeField("termos aceitos em", null=True, blank=True)
 
     objects = GerenciadorUsuarios()
 
@@ -113,6 +127,15 @@ class UsuarioSeguro(ModeloSeguro, AbstractBaseUser, PermissionsMixin):
 
     def get_short_name(self):
         return (self.nome or self.email).split(" ")[0]
+
+    def _get_session_auth_hash(self, secret=None):
+        # O login fica amarrado à senha E à chave de sessão: trocar qualquer uma derruba as sessões (US 3.2).
+        return salted_hmac(
+            "infra_vibecoding.usuarios.UsuarioSeguro.sessao",
+            f"{self.password}:{self.chave_de_sessao}",
+            secret=secret,
+            algorithm="sha256",
+        ).hexdigest()
 
     def check_password(self, raw_password):
         # Se o método de guardar a senha mudou, o Django regrava a senha aqui. Só isso é liberado.

@@ -1,0 +1,10 @@
+{% autoescape off %}Olá{% if usuario.nome %}, {{ usuario.nome }}{% endif %}.
+
+Alguém pediu para criar uma conta no {{ sistema }} com este e-mail, mas você já tem uma conta.
+
+Para entrar, use a sua senha. Se esqueceu, defina uma nova aqui:
+
+{{ link }}
+
+Se não foi você, pode ignorar este e-mail: nada foi alterado.
+{% endautoescape %}

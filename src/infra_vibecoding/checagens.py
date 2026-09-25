@@ -366,3 +366,34 @@ def sec09_email(app_configs=None, **kwargs):
                 id="SEC.E092",
             ))
     return erros
+
+
+# Cadastro público (US 3.2)
+
+@register(Tags.security)
+def sec08_cadastro_publico(app_configs=None, **kwargs):
+    caminho = getattr(settings, "CADASTRO_PUBLICO", None)
+    if not caminho:
+        return []
+    from django.utils.module_loading import import_string
+
+    from .login.cadastro import Cadastro
+
+    try:
+        classe = import_string(caminho)
+    except ImportError:
+        classe = None
+    if not (isinstance(classe, type) and issubclass(classe, Cadastro)):
+        problema = f"CADASTRO_PUBLICO aponta para '{caminho}', que não é uma classe de cadastro do 00."
+    elif not (classe.termos_url and classe.privacidade_url):
+        problema = "Cadastro público ligado sem os endereços dos termos de uso e da política de privacidade (LGPD)."
+    else:
+        return []
+    return [Error(
+        problema,
+        hint=(
+            "Crie uma subclasse de infra_vibecoding.login.cadastro.Cadastro com termos_url e privacidade_url "
+            "preenchidos, ou deixe CADASTRO_PUBLICO = None."
+        ),
+        id="SEC.E084",
+    )]

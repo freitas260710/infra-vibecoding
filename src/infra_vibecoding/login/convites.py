@@ -31,6 +31,8 @@ _ASSUNTOS = {
     "convite": "Seu acesso foi criado",
     "redefinir": "Redefinição de senha",
     "aviso": "Sua senha foi definida",
+    "cadastro": "Confirme o seu e-mail para criar a conta",
+    "conta_existente": "Você já tem uma conta",
 }
 
 

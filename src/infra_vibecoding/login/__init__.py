@@ -17,9 +17,14 @@ Primeiro acesso seguro (D43). Substitui a senha provisória do Bubble, em que qu
   revelar quais e-mails existem, e têm limite de pedidos.
 - Abrir o link confirma o e-mail. Definir ou trocar a senha manda um e-mail de aviso para a pessoa.
 
+Tela de entrar (US 3.2): "Manter conectado" (até 30 dias) e "Lembrar meu e-mail", desmarcados por padrão.
+Derrubar sessões: desconectar(quem_pede, usuarios, request), conferindo a regra "desconectar" do sistema.
+Cadastro público (US 3.2): desligado por padrão; o sistema liga com CADASTRO_PUBLICO no settings.py.
+
 Visual: cada tela usa um template em infra_vibecoding/login/. O sistema troca o visual criando um arquivo com o
 mesmo nome na pasta templates dele (ex.: templates/infra_vibecoding/login/entrar.html). A lógica continua no 00.
 """
 from .convites import convidar, enviar_link_de_senha
+from .sessoes import desconectar
 
-__all__ = ["convidar", "enviar_link_de_senha"]
+__all__ = ["convidar", "desconectar", "enviar_link_de_senha"]

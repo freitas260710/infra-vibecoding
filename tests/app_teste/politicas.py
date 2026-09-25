@@ -68,5 +68,7 @@ class PoliticaUsuario(Politica):
     def pode(self, usuario, acao, obj=None):
         if acao == "criar":  # US 3.1: só administrador abre acesso para colegas
             return usuario.is_staff
+        if acao == "desconectar":  # US 3.2: só administrador derruba sessões de outra pessoa
+            return usuario.is_staff
         return acao == "editar" and obj is not None and obj.pk == usuario.pk
 

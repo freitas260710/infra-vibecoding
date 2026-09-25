@@ -4,6 +4,9 @@ Tela de banco (admin do Django) protegida pelo Infra Vibecoding. Equivalente à 
 - Só entra quem é administrador do sistema (is_staff). Visitante e usuário comum vão para o login.
 - Tudo que o administrador vê ou altera passa pelo 00 "como sistema" (como a aba Data do Bubble,
   que ignora as privacy rules), com registro de quem mexeu e em quê.
+- Cada tela do AdminSeguro roda inteira como leitura de sistema (US 2.6): filtros laterais por ligação
+  (ex.: filtrar usuários por empresa), buscas e listas de escolha funcionam. Gravações continuam exigindo
+  "como sistema". Cada tela aberta fica registrada ("admin: <usuário> abriu <endereço>").
 - Toda tabela do sistema registrada no admin usa AdminSeguro (checagem SEC.E071).
 - O endereço não pode ser o padrão "admin/" (checagem SEC.E072). Cada sistema escolhe o seu.
 
@@ -20,11 +23,13 @@ A tabela de usuário (US 2.4) usa AdminUsuarioSeguro, que também troca a senha 
     from infra_vibecoding.admin import AdminUsuarioSeguro
     admin.site.register(Usuario, AdminUsuarioSeguro)
 """
+from functools import wraps
+
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
 from django.contrib.auth.forms import AdminPasswordChangeForm, AdminUserCreationForm, UserChangeForm
 
-from .dados import ModeloSeguro
+from .dados import ModeloSeguro, _leitura_da_tela_de_banco, log
 
 
 def _motivo(request, acao):
@@ -53,7 +58,23 @@ class _CamposRelacionadosSeguros:
         return super().formfield_for_manytomany(db_field, request, **kwargs)
 
 
+def _tela_como_sistema(view):
+    @wraps(view)
+    def tela(request, *args, **kwargs):
+        log.info("%s", _motivo(request, f"abriu {request.path}"))
+        with _leitura_da_tela_de_banco():
+            return view(request, *args, **kwargs)
+
+    return tela
+
+
 class AdminSeguro(_CamposRelacionadosSeguros, admin.ModelAdmin):
+    def get_urls(self):
+        urls = super().get_urls()
+        for padrao in urls:
+            padrao.callback = _tela_como_sistema(padrao.callback)
+        return urls
+
     def get_queryset(self, request):
         qs = self.model.objects.como_sistema(_motivo(request, "consultou"))
         ordem = self.get_ordering(request)

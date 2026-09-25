@@ -13,6 +13,8 @@ class ItemPedidoInline(InlineTabularSeguro):
 @admin.register(Pedido)
 class PedidoAdmin(AdminSeguro):
     list_display = ("titulo", "dono", "valor")
+    list_filter = ("dono",)  # filtro lateral por ligação (US 2.6)
+    search_fields = ("titulo", "dono__email")
     inlines = [ItemPedidoInline]
 
 

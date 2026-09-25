@@ -1,5 +1,12 @@
 # Histórico de versões
 
+## 0.1.4
+
+Correção na tela de banco.
+
+- As telas do AdminSeguro rodam inteiras como leitura de sistema: filtros laterais por ligação (ex.: filtrar usuários por empresa), buscas e listas de escolha deixam de dar AcessoSemEscopo. Gravações continuam exigindo "como sistema". Cada tela aberta fica registrada ("admin: <usuário> abriu <endereço>").
+- 206 testes automáticos.
+
 ## 0.1.3
 
 Usuário seguro e login pelo e-mail.

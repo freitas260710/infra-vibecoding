@@ -8,7 +8,7 @@ Todo sistema importa este pacote. O sistema escreve só o negócio (tabelas, reg
 
 Referência mínima: tudo que o Bubble.io entrega de segurança por padrão, com a diferença de que aqui o padrão é fechado.
 
-Status: versão 0.1.3, núcleo, comando de criar sistema, regras que consultam outras tabelas e usuário seguro com login pelo e-mail. Ainda não usar em produção (faltam contas e login, arquivos, jobs, registros e o portão de deploy).
+Status: versão 0.1.4, núcleo, comando de criar sistema, regras que consultam outras tabelas e usuário seguro com login pelo e-mail. Ainda não usar em produção (faltam contas e login, arquivos, jobs, registros e o portão de deploy).
 
 ## O que o 00 faz hoje
 
@@ -16,7 +16,7 @@ Status: versão 0.1.3, núcleo, comando de criar sistema, regras que consultam o
 - Travas de ações: criar, editar e excluir exigem dizer quem está fazendo, e a política é conferida antes (inclusive no registro como está no banco e como vai ficar).
 - Travas de telas: login obrigatório por padrão e toda tela declara `@publica`, `@logado` ou `@exige(acao, Model)`.
 - Configurações de segurança herdadas: senha com Argon2, cookies protegidos, HTTPS e HSTS em produção, cabeçalhos de proteção, chave secreta obrigatória em produção.
-- Tela de banco (admin) protegida: só administrador, tudo como sistema e registrado, endereço próprio.
+- Tela de banco (admin) protegida: só administrador, tudo como sistema e registrado (inclusive filtros laterais e buscas), endereço próprio.
 - Checagens `SEC.*`: o sistema não liga se alguma trava for esquecida ou enfraquecida.
 - Usuário seguro: a tabela de usuário de cada sistema herda de `UsuarioSeguro`, com login pelo e-mail e a mesma trava das outras tabelas. Checagens SEC.E081 e SEC.E082.
 - Ninguém silencia as checagens `SEC.*`: se `SILENCED_SYSTEM_CHECKS` tiver alguma, o sistema não liga.
@@ -28,7 +28,7 @@ Status: versão 0.1.3, núcleo, comando de criar sistema, regras que consultam o
 Na pasta onde o sistema vai ficar:
 
 ```
-uvx --from "git+https://github.com/freitas260710/infra-vibecoding@v0.1.3" infra-vibecoding novo-sistema NOME
+uvx --from "git+https://github.com/freitas260710/infra-vibecoding@v0.1.4" infra-vibecoding novo-sistema NOME
 ```
 
 O sistema nasce com o 00 na mesma versão do comando (fixa no `pyproject.toml`), a tabela de usuário segura (app `contas`, login pelo e-mail), `settings.py` herdando as configurações de segurança, login obrigatório, admin num endereço próprio, `CLAUDE.md` com as regras para a IA e a verificação no GitHub chamando o portão do 00 (`.github/workflows/portao.yml`). Depois:
@@ -44,7 +44,7 @@ uv run pytest
 O comando acima já faz a instalação e a ligação. Para referência, a instalação numa versão fixa é:
 
 ```
-uv add "infra-vibecoding @ git+https://github.com/freitas260710/infra-vibecoding@v0.1.3"
+uv add "infra-vibecoding @ git+https://github.com/freitas260710/infra-vibecoding@v0.1.4"
 ```
 
 No `settings.py`, primeira linha:

@@ -46,6 +46,7 @@ _AUTORIZADOS = ContextVar("infra_vibecoding_autorizados", default=frozenset())
 _MODO_SISTEMA = ContextVar("infra_vibecoding_modo_sistema", default=False)
 _EM_REGRA = ContextVar("infra_vibecoding_em_regra", default=False)
 _VALIDANDO_UNICOS = ContextVar("infra_vibecoding_validando_unicos", default=False)
+_LEITURA_ADMIN = ContextVar("infra_vibecoding_leitura_admin", default=False)
 
 
 class AcessoSemEscopo(Exception):
@@ -177,6 +178,20 @@ def _validando_unicos():
         _VALIDANDO_UNICOS.reset(token)
 
 
+@contextmanager
+def _leitura_da_tela_de_banco():
+    """Durante uma tela da tela de banco (admin), leituras sem escopo são leituras como sistema (US 2.6).
+
+    Só leitura: gravações continuam exigindo salvar_como_sistema / excluir_como_sistema, que o AdminSeguro faz.
+    Quem abre a tela e o endereço ficam registrados pelo AdminSeguro.
+    """
+    token = _LEITURA_ADMIN.set(True)
+    try:
+        yield
+    finally:
+        _LEITURA_ADMIN.reset(token)
+
+
 def _autorizado(obj):
     return _MODO_SISTEMA.get() or id(obj) in _AUTORIZADOS.get()
 
@@ -197,6 +212,8 @@ class QuerySetSeguro(models.QuerySet):
         if self._escopo is None:
             if _VALIDANDO_UNICOS.get():
                 return  # conferência de valor repetido (ex.: e-mail já usado): só responde sim ou não
+            if _LEITURA_ADMIN.get():
+                return  # tela de banco: lê como sistema (filtros laterais, listas de escolha), com registro
             raise AcessoSemEscopo(
                 f"{self.model.__name__}: leitura sem dizer para quem. "
                 f"Use {self.model.__name__}.objects.para(usuario) ou "

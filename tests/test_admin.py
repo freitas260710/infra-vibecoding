@@ -129,3 +129,57 @@ def test_tabela_no_admin_sem_admin_seguro_e_barrada():
 def test_admin_no_endereco_padrao_e_barrado(settings):
     settings.ROOT_URLCONF = "tests.urls_admin_padrao"
     assert [e.id for e in sec07_endereco_do_admin()] == ["SEC.E072"]
+
+
+# US 2.6: filtros laterais por ligação e busca na tela de banco.
+def test_lista_com_filtro_por_ligacao_abre(client, chefe, pedido_da_ana, ana):
+    client.force_login(chefe)
+    r = client.get(ADMIN + "app_teste/pedido/")
+    assert r.status_code == 200
+    assert "Pedido da Ana" in r.content.decode()
+
+
+def test_filtro_lateral_por_ligacao_filtra(client, chefe, pedido_da_ana, ana):
+    client.force_login(chefe)
+    r = client.get(ADMIN + f"app_teste/pedido/?dono__id__exact={ana.pk}")
+    assert r.status_code == 200 and "Pedido da Ana" in r.content.decode()
+    r = client.get(ADMIN + f"app_teste/pedido/?dono__id__exact={chefe.pk}")
+    assert r.status_code == 200 and "Pedido da Ana" not in r.content.decode()
+
+
+def test_busca_na_tela_de_banco(client, chefe, pedido_da_ana):
+    client.force_login(chefe)
+    r = client.get(ADMIN + "app_teste/pedido/?q=Ana")
+    assert r.status_code == 200 and "Pedido da Ana" in r.content.decode()
+
+
+def test_tela_aberta_fica_registrada(client, chefe, caplog):
+    client.force_login(chefe)
+    with caplog.at_level("INFO", logger="infra_vibecoding.auditoria"):
+        client.get(ADMIN + "app_teste/pedido/")
+    assert "abriu /gestao-interna/app_teste/pedido/" in caplog.text
+
+
+def test_leitura_como_sistema_termina_com_a_tela(client, chefe, pedido_da_ana):
+    from infra_vibecoding.dados import AcessoSemEscopo
+
+    client.force_login(chefe)
+    client.get(ADMIN + "app_teste/pedido/")
+    with pytest.raises(AcessoSemEscopo):
+        list(Pedido.objects.all())
+
+
+def test_tela_de_banco_continua_so_para_administrador(client, ana):
+    client.force_login(ana)
+    r = client.get(ADMIN + "app_teste/pedido/?dono__id__exact=1")
+    assert r.status_code == 302 and "login" in r["Location"]
+
+
+def test_leitura_da_tela_de_banco_nao_libera_gravacao_em_massa():
+    from infra_vibecoding.dados import EscritaSemAutorizacao, _leitura_da_tela_de_banco
+
+    with _leitura_da_tela_de_banco():
+        with pytest.raises(EscritaSemAutorizacao):
+            Pedido.objects.update(valor=0)
+        with pytest.raises(EscritaSemAutorizacao):
+            Pedido.objects.all().delete()

@@ -47,6 +47,7 @@ _MODO_SISTEMA = ContextVar("infra_vibecoding_modo_sistema", default=False)
 _EM_REGRA = ContextVar("infra_vibecoding_em_regra", default=False)
 _VALIDANDO_UNICOS = ContextVar("infra_vibecoding_validando_unicos", default=False)
 _LEITURA_ADMIN = ContextVar("infra_vibecoding_leitura_admin", default=False)
+_AUTOR = ContextVar("infra_vibecoding_autor", default=("sistema", ""))  # quem está gravando (arquivos, US 4.1)
 
 
 class AcessoSemEscopo(Exception):
@@ -371,8 +372,12 @@ class ModeloSeguro(models.Model):
                 raise SemPermissao(f"Registro de {type(self).__name__} não encontrado.")
             exigir(usuario, "editar", original)  # pode editar o registro como está hoje
             exigir(usuario, "editar", self)      # e como ele vai ficar
-        with _autorizar(self):
-            self.save(*args, **kwargs)
+        token = _AUTOR.set(("usuario", usuario))
+        try:
+            with _autorizar(self):
+                self.save(*args, **kwargs)
+        finally:
+            _AUTOR.reset(token)
         return self
 
     def excluir(self, usuario):
@@ -387,8 +392,12 @@ class ModeloSeguro(models.Model):
     def salvar_como_sistema(self, motivo, *args, **kwargs):
         _exigir_motivo(motivo)
         log.info("gravação como sistema: %s pk=%s (motivo: %s)", type(self).__name__, self.pk, motivo)
-        with _autorizar(self):
-            self.save(*args, **kwargs)
+        token = _AUTOR.set(("sistema", motivo))
+        try:
+            with _autorizar(self):
+                self.save(*args, **kwargs)
+        finally:
+            _AUTOR.reset(token)
         return self
 
     def excluir_como_sistema(self, motivo):

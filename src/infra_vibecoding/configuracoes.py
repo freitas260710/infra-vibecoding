@@ -123,6 +123,16 @@ CADASTRO_PUBLICO = None
 # Ex.: DOIS_FATORES_OBRIGATORIO = "nucleo.regras.exige_dois_fatores"
 DOIS_FATORES_OBRIGATORIO = None
 
+# Arquivos privados (US 4.1): o sistema pode apertar os limites por pessoa ou plano e ter cota de espaço apontando
+# para uma função sua. Ex.: ARQUIVOS_LIMITES = "contas.regras.limites_de_arquivo"
+ARQUIVOS_LIMITES = None
+# Nenhum envio passa de 100 MB: é cortado enquanto ainda está chegando.
+FILE_UPLOAD_HANDLERS = [
+    "infra_vibecoding.arquivos.LimiteDeEnvio",
+    "django.core.files.uploadhandler.MemoryFileUploadHandler",
+    "django.core.files.uploadhandler.TemporaryFileUploadHandler",
+]
+
 # E-mails (US 3.1b, D45). O 00 não tem conta em provedor nenhum: cada sistema configura a própria conta nas
 # variáveis de ambiente (ou no .env). Qualquer provedor que aceite SMTP (Brevo, Mailjet, Resend...).
 #   EMAIL_HOST, EMAIL_PORT (587), EMAIL_HOST_USER, EMAIL_HOST_PASSWORD: dados SMTP do provedor

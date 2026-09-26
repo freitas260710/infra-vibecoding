@@ -1,6 +1,6 @@
 from infra_vibecoding.dados import Politica, politica
 
-from .models import AcessoSetor, Documento, ItemPedido, Pedido, Rascunho, Setor, UsuarioTeste
+from .models import AcessoSetor, Anexo, Documento, ItemPedido, Pedido, Rascunho, Setor, UsuarioTeste
 
 
 @politica(Pedido)
@@ -71,4 +71,17 @@ class PoliticaUsuario(Politica):
         if acao == "desconectar":  # US 3.2: só administrador derruba sessões de outra pessoa
             return usuario.is_staff
         return acao == "editar" and obj is not None and obj.pk == usuario.pk
+
+
+@politica(Anexo)
+class PoliticaAnexo(Politica):
+    """Anexo segue o pedido: quem é dono do pedido vê, envia e troca os anexos dele."""
+
+    def escopo(self, usuario, qs):
+        return qs.filter(pedido__dono=usuario)
+
+    def pode(self, usuario, acao, obj=None):
+        if acao in ("criar", "editar", "excluir"):
+            return obj is None or obj.pedido.dono_id == usuario.id
+        return False
 

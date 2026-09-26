@@ -2,7 +2,7 @@ from django.contrib import admin
 
 from infra_vibecoding.admin import AdminSeguro, AdminUsuarioSeguro, InlineTabularSeguro
 
-from .models import ItemPedido, Pedido, UsuarioTeste
+from .models import Anexo, ItemPedido, Pedido, UsuarioTeste
 
 
 class ItemPedidoInline(InlineTabularSeguro):
@@ -20,3 +20,4 @@ class PedidoAdmin(AdminSeguro):
 
 admin.site.register(ItemPedido, AdminSeguro)
 admin.site.register(UsuarioTeste, AdminUsuarioSeguro)
+admin.site.register(Anexo, AdminSeguro)

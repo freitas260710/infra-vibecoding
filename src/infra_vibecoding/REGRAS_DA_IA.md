@@ -68,6 +68,19 @@ quebradas. Mesmo assim, siga todas: acertar de primeira é mais rápido do que e
 - Telas feitas com templates do Django e HTMX.
 - Proibido: `@csrf_exempt`, `mark_safe`, `|safe` e `autoescape off` com dado vindo de usuário.
 
+## Arquivos
+- Arquivo enviado por usuário é sempre privado e pertence a um registro: `CampoArquivo(tipos=[...], tamanho_max_mb=N)`
+  de `infra_vibecoding.arquivos` na tabela (tipos: imagem, pdf, documento, planilha, apresentacao, texto, compactado,
+  audio, video; até 100 MB). Nunca usar `FileField`/`ImageField` do Django, `MEDIA_URL` ou pasta pública para
+  arquivo de usuário. Vários anexos num registro: uma tabela de anexos ligada a ele, com política própria.
+- Gravar formulário com arquivo: `salvar_formulario(form, request.user)` (devolve None e mostra os erros de tamanho
+  e cota no próprio formulário). Em código: `anexar(registro, "campo", arquivo)` e depois `registro.salvar(usuario)`.
+- Mostrar e baixar: `{% load arquivos %}` e `{{ registro|arquivo:"campo" }}` (nome, tamanho, tipo, eh_imagem, url).
+  O link só abre para quem vê o registro pela política, conferido a cada clique. Nunca servir arquivo por outra view.
+- Limites por pessoa ou plano e cota de espaço: `ARQUIVOS_LIMITES = "app.modulo.funcao"` no settings.py (exemplo
+  no começo de `infra_vibecoding/arquivos.py`). Arquivo público ou link para quem não é usuário: ainda não existe
+  (US 4.2); não improvisar.
+
 ## Páginas de erro
 - As páginas de erro são do 00, em português e sem nada técnico: 404, 403, 403 de formulário vencido (CSRF), 400,
   500 (com código do erro que também vai para o registro) e 429. Nunca criar `handler404`, `handler500` etc. no

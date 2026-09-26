@@ -1,6 +1,7 @@
 from django.conf import settings
 from django.db import models
 
+from infra_vibecoding.arquivos import CampoArquivo
 from infra_vibecoding.dados import ModeloSeguro
 from infra_vibecoding.usuarios import UsuarioSeguro
 
@@ -43,3 +44,11 @@ class AcessoSetor(ModeloSeguro):
 class Documento(ModeloSeguro):
     setor = models.ForeignKey(Setor, on_delete=models.CASCADE)
     titulo = models.CharField(max_length=100)
+
+
+# US 4.1: arquivo privado ligado a um registro.
+
+class Anexo(ModeloSeguro):
+    pedido = models.ForeignKey(Pedido, on_delete=models.CASCADE, related_name="anexos")
+    arquivo = CampoArquivo(tipos=["imagem", "pdf"], tamanho_max_mb=1, blank=False)
+    comprovante = CampoArquivo(tipos=["pdf"], tamanho_max_mb=1)

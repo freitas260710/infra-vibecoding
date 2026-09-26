@@ -1,5 +1,22 @@
 # Histórico de versões
 
+## 0.3.0
+
+Arquivos privados (US 4.1, etapa 4, decisões D55 e D56).
+
+- `CampoArquivo(tipos=[...], tamanho_max_mb=N)`: campo de arquivo privado, sempre ligado a um registro. Não existe arquivo solto nem público por esquecimento.
+- Envio conferido pelo conteúdo (não pelo nome): imagem, pdf, documento, planilha, apresentacao, texto, compactado, audio e video. HTML, SVG, XML e programas são sempre recusados. Imagem corrompida ou disfarçada é recusada.
+- Fotos: a localização (GPS) gravada pelo celular é apagada ao enviar (LGPD); o resto dos dados da foto continua.
+- Tamanho: padrão 10 MB por arquivo, até 100 MB por campo. Nenhum envio passa de 100 MB: é cortado enquanto ainda está chegando (`FILE_UPLOAD_HANDLERS`, SEC.E121).
+- Limites por pessoa ou plano e cota de espaço definidos pelo sistema (`ARQUIVOS_LIMITES`, SEC.E122). O 00 guarda o tamanho de cada arquivo por espaço, para o sistema somar e cobrar.
+- Baixar: `/arquivos/<id>/` só abre para quem está logado e pode ver o registro pela política, conferido a cada clique. Link vazado não abre para mais ninguém ("não encontrado", registrado). A tela de banco baixa como sistema. Resposta sem cache e protegida contra execução no navegador.
+- Guardado com nome aleatório: local na pasta `arquivos_privados` do sistema (fora do Git); nos servidores, o armazenamento em `STORAGES["arquivos"]` (nuvem, etapa 8). Trocar ou remover o arquivo apaga o antigo; excluir o registro apaga os arquivos dele.
+- `salvar_formulario(form, usuario)`, `anexar(registro, campo, arquivo)` e o filtro `{{ registro|arquivo:"campo" }}`.
+- Registro de quem enviou e quem baixou. Tabela nova do próprio 00 (`ArquivoGuardado`), fechada: ninguém lista direto.
+- Biblioteca nova no 00: Pillow (conferir imagens e apagar o GPS).
+- Ao atualizar para esta versão: rodar `migrate` (tabela nova do 00). Nenhuma mudança obrigatória no sistema; o `.gitignore` do sistema deve ter `arquivos_privados/`.
+- 421 testes automáticos.
+
 ## 0.2.8
 
 Importar e exportar planilha na tela de banco, e a situação do acesso dos usuários (US I.1, decisão D53).

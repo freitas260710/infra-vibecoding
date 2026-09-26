@@ -129,6 +129,9 @@ staticfiles/
 # Segredos
 .env
 
+# Arquivos enviados no computador do desenvolvedor (dados de teste; nos servidores ficam na nuvem)
+arquivos_privados/
+
 # Testes
 .pytest_cache/
 '''

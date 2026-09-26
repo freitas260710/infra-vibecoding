@@ -160,8 +160,11 @@ def campos_da_exportacao(modelo):
 
 
 def _campos_importaveis(modelo):
+    from .arquivos import CampoArquivo
+
     return {c.name: c for c in modelo._meta.concrete_fields
             if c.editable and not c.primary_key and c.name not in SEGREDOS | SO_SAIDA
+            and not isinstance(c, CampoArquivo)  # arquivo não entra por planilha
             and not getattr(c, "auto_now", False) and not getattr(c, "auto_now_add", False)}
 
 

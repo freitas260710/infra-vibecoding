@@ -575,3 +575,36 @@ def sec11_paginas_de_erro(app_configs=None, **kwargs):
             id="SEC.E113",
         ))
     return erros
+
+
+# Arquivos privados (US 4.1)
+
+_ENVIO_ARQUIVOS = "infra_vibecoding.arquivos.LimiteDeEnvio"
+
+
+@register(Tags.security)
+def sec12_arquivos(app_configs=None, **kwargs):
+    erros = []
+    manipuladores = list(getattr(settings, "FILE_UPLOAD_HANDLERS", []))
+    if not manipuladores or manipuladores[0] != _ENVIO_ARQUIVOS:
+        erros.append(Error(
+            "Limite de envio de arquivos desligado: um envio gigante poderia encher o disco do servidor.",
+            hint=f"Não redefina FILE_UPLOAD_HANDLERS: '{_ENVIO_ARQUIVOS}' vem do 00 em primeiro lugar.",
+            id="SEC.E121",
+        ))
+    caminho = getattr(settings, "ARQUIVOS_LIMITES", None)
+    if caminho:
+        from django.utils.module_loading import import_string
+
+        try:
+            funcao = import_string(caminho)
+        except ImportError:
+            funcao = None
+        if not callable(funcao):
+            erros.append(Error(
+                f"ARQUIVOS_LIMITES aponta para '{caminho}', que não é uma função do sistema.",
+                hint="Aponte para uma função (usuario, registro, campo) que devolve os limites, ou deixe None.",
+                id="SEC.E122",
+            ))
+    return erros
+

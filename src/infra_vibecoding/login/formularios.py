@@ -5,6 +5,12 @@ from django.contrib.auth.forms import AuthenticationForm, PasswordChangeForm, Se
 from django.utils import timezone
 
 
+def _registrar_senha(usuario, o_que):
+    from ..acessos import registrar_acesso
+
+    registrar_acesso("senha", o_que, pessoa=usuario.email)
+
+
 class FormularioEntrar(AuthenticationForm):
     error_messages = {
         **AuthenticationForm.error_messages,
@@ -45,6 +51,7 @@ class FormularioDefinirSenha(SetPasswordForm):
             usuario.email_confirmado_em = timezone.now()
         if commit:
             usuario.salvar_como_sistema(f"login: {usuario.email} definiu a senha pelo link do e-mail")
+            _registrar_senha(usuario, "definiu a senha pelo link do e-mail")
         return usuario
 
 
@@ -55,6 +62,7 @@ class FormularioTrocarSenha(PasswordChangeForm):
         usuario = super().save(commit=False)
         if commit:
             usuario.salvar_como_sistema(f"login: {usuario.email} trocou a própria senha")
+            _registrar_senha(usuario, "trocou a própria senha")
         return usuario
 
 

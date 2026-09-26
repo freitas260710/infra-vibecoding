@@ -21,6 +21,7 @@ class InfraVibecodingConfig(AppConfig):
 
         # Histórico automático (US 6.1): liga o registro das exclusões desde o início, antes de qualquer gravação.
         from . import historico  # noqa: F401
+        from . import acessos  # noqa: F401  (registro de acessos, US 6.2: entrar e sair)
 
         # Carrega o politicas.py de cada app do sistema.
         autodiscover_modules("politicas")
@@ -44,3 +45,7 @@ class InfraVibecodingConfig(AppConfig):
             from .admin import entrar_pela_tela_do_00
 
             admin.site.login = entrar_pela_tela_do_00
+            # Entrada na tela de banco fica no registro de acessos, uma vez por login (US 6.2).
+            from .admin import registrar_entrada_no_inicio
+
+            registrar_entrada_no_inicio(admin.site)

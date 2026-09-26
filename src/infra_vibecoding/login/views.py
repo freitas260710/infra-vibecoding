@@ -267,6 +267,9 @@ class CriarConta(_ComCadastro, FormView):
                 _enviar(self.request, get_user_model()(email=email, nome=dados.get("nome", "")), "cadastro",
                         {"link": link})
                 log.info("login: link de cadastro público enviado para %s", email)
+                from ..acessos import registrar_acesso
+
+                registrar_acesso("link", "cadastro público", pessoa=email)
         return self.render_to_response(self.get_context_data(form=None, enviado=True))
 
 
@@ -323,6 +326,9 @@ class SenhaDoCadastro(_ComCadastro, FormView):
                 usuario.termos_aceitos_em = datetime.fromisoformat(self.conteudo["termos"])
                 usuario.salvar_como_sistema(self.cadastro.motivo(usuario))
                 self.cadastro.ao_confirmar(usuario, extras, self.request)
+            from ..acessos import registrar_acesso
+
+            registrar_acesso("senha", "definiu a senha no cadastro público", pessoa=usuario.email)
         except IntegrityError:
             return self._falhou("Este e-mail já tem uma conta. Use Entrar ou Esqueci a senha.")
         self.request.session.pop(_SESSAO_CADASTRO, None)
@@ -349,6 +355,9 @@ def _senha_confere(request, usuario, senha):
         return True
     registrar_senha_errada(usuario.email, request)
     log.warning("2fa: %s errou a senha ao mexer na verificação em duas etapas", usuario.email)
+    from ..acessos import registrar_acesso
+
+    registrar_acesso("senha_errada", "ao mexer na verificação em duas etapas", pessoa=usuario.email)
     return False
 
 
@@ -404,6 +413,7 @@ class VerificarCodigo(FormView):
             self.pendente["erros"] = self.pendente.get("erros", 0) + 1
             self.request.session[dois_fatores.SESSAO_PENDENTE] = self.pendente
             log.warning("2fa: código errado para %s (%s)", usuario.email, limites.endereco_de(self.request))
+            dois_fatores._registrar(usuario, "código errado ao entrar")
             if self.pendente["erros"] >= _MAXIMO_DE_ERROS or login_bloqueado(usuario.email, self.request):
                 return self._desistir("Código errado muitas vezes. Entre de novo.")
             form.add_error("codigo", "Código incorreto ou vencido.")

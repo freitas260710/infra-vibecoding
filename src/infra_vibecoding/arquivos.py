@@ -566,6 +566,12 @@ def _ainda_no_registro(guardado):
     return None
 
 
+def _registrar(tipo, detalhe, pessoa=None):
+    from .acessos import registrar_acesso
+
+    registrar_acesso(tipo, detalhe, pessoa=pessoa)
+
+
 def baixar(request, id):
     """Entrega o arquivo para quem pode ver o registro. Para os outros: "não encontrado" (não confirma que existe)."""
     from .models import ArquivoGuardado
@@ -574,9 +580,11 @@ def baixar(request, id):
     registro, como = (None, False) if guardado is None else _pode_baixar(request.user, guardado)
     if not como or registro is None:
         log.warning("arquivos: %s tentou baixar o arquivo %s sem permissão", request.user.email, id)
+        _registrar("negado", f"baixar o arquivo {id}")
         raise Http404
     log.info("arquivos: %s baixou %s de %s %s (%s)", request.user.email, guardado.nome, guardado.modelo,
              guardado.registro, como)
+    _registrar("download", f"{guardado.nome} de {guardado.modelo} {guardado.registro}")
     return _entregar(guardado)
 
 
@@ -630,6 +638,8 @@ def compartilhar(usuario, registro, campo, dias=PRAZO_PADRAO_DIAS, request=None)
     if guardado is None or _registro_para_compartilhar(usuario, guardado) is None:
         log.warning("arquivos: %s tentou compartilhar sem permissão (%s %s)", getattr(usuario, "email", usuario),
                     registro._meta.label, registro.pk)
+        _registrar("negado", f"compartilhar arquivo de {registro._meta.label} {registro.pk}",
+                   pessoa=getattr(usuario, "email", ""))
         raise SemPermissao("Sem permissão para compartilhar este arquivo.")
     dias = int(dias)
     if not 1 <= dias <= PRAZO_MAXIMO_DIAS:
@@ -716,11 +726,13 @@ def baixar_compartilhado(request, codigo):
         resumo=_resumo_do_codigo(codigo)).first()
     if link is None or not link.ativo or _ainda_no_registro(link.arquivo) is None:
         log.warning("arquivos: link de compartilhamento inválido, vencido ou cancelado (%s)", endereco_de(request))
+        _registrar("negado", "link de compartilhamento inválido, vencido ou cancelado")
         return render(request, "infra_vibecoding/arquivos/link_indisponivel.html", status=410)
     type(link)._base_manager.filter(pk=link.pk).update(downloads=F("downloads") + 1,
                                                         ultimo_download_em=timezone.now())
     log.info("arquivos: %s baixado por link de compartilhamento criado por %s (%s)", link.arquivo.nome,
              link.criado_por, endereco_de(request))
+    _registrar("download", f"{link.arquivo.nome} por link de compartilhamento criado por {link.criado_por}")
     resposta = _entregar(link.arquivo)
     resposta["X-Robots-Tag"] = "noindex"
     return resposta

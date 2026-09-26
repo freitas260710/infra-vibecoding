@@ -10,7 +10,14 @@ import secrets
 from contextvars import ContextVar
 
 _LETRAS = "23456789ABCDEFGHJKMNPQRSTUVWXYZ"
-_PEDIDO = ContextVar("infra_vibecoding_pedido", default=None)  # (código, request)
+_PEDIDO = ContextVar("infra_vibecoding_pedido", default=None)  # _Pedido
+
+
+class _Pedido:
+    __slots__ = ("codigo", "request", "acessos")
+
+    def __init__(self, codigo, request):
+        self.codigo, self.request, self.acessos = codigo, request, []
 
 
 def novo_codigo():
@@ -19,7 +26,16 @@ def novo_codigo():
 
 def codigo_atual():
     atual = _PEDIDO.get()
-    return atual[0] if atual else ""
+    return atual.codigo if atual else ""
+
+
+def request_atual():
+    atual = _PEDIDO.get()
+    return atual.request if atual else None
+
+
+def pedido_atual():
+    return _PEDIDO.get()
 
 
 def pessoa_atual():
@@ -27,7 +43,7 @@ def pessoa_atual():
     atual = _PEDIDO.get()
     if not atual:
         return ""
-    usuario = getattr(atual[1], "user", None)
+    usuario = getattr(atual.request, "user", None)
     if usuario is None or not getattr(usuario, "is_authenticated", False):
         return ""
     return getattr(usuario, "email", "") or str(usuario.pk)
@@ -39,7 +55,7 @@ def endereco_atual():
         return ""
     from .limites import endereco_de
 
-    return endereco_de(atual[1])
+    return endereco_de(atual.request)
 
 
 class CodigoDoPedido:
@@ -51,10 +67,17 @@ class CodigoDoPedido:
     def __call__(self, request):
         codigo = novo_codigo()
         request.codigo_do_pedido = codigo
-        token = _PEDIDO.set((codigo, request))
+        pedido = _Pedido(codigo, request)
+        token = _PEDIDO.set(pedido)
         try:
             resposta = self.get_response(request)
         finally:
             _PEDIDO.reset(token)
+            if pedido.acessos:
+                # Registro de acessos (US 6.2): gravado no fim do clique, fora da transação da tela, para não se
+                # perder quando a tela desfaz as gravações dela (ex.: acesso negado dentro de uma transação).
+                from .acessos import gravar_pendentes
+
+                gravar_pendentes(pedido.acessos)
         resposta["X-Codigo-Pedido"] = codigo
         return resposta

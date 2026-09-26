@@ -111,6 +111,17 @@ quebradas. Mesmo assim, siga todas: acertar de primeira é mais rápido do que e
 - Cada clique tem um código (cabeçalho `X-Codigo-Pedido`), que vai no histórico e no código do erro (E-...). Não
   redefinir MIDDLEWARE (SEC.E131).
 
+## Registro de acessos e tela de Registros
+- O 00 registra sozinho entradas, senhas erradas, bloqueios, saídas, acessos negados, verificação em duas etapas,
+  senha, links de acesso, downloads, planilhas, entrada na tela de banco e erros. Nunca criar log de acesso próprio
+  nem guardar senha, código ou link em registro.
+- Evento de segurança do negócio que não está na lista (ex.: baixou a nota fiscal gerada na hora):
+  `registrar_acesso("download", "nota fiscal 123")` de `infra_vibecoding.acessos`, com um dos tipos da tabela.
+- Tudo aparece na tela de banco em Registros (só superusuário), junto com o histórico dos dados e os erros, com
+  filtro por tipo, pessoa, período, tabela e código do clique.
+- Acessos ficam um ano. Até existirem os jobs, rodar `uv run python manage.py limpar_registros` uma vez por dia nos
+  servidores. O histórico dos dados nunca é apagado.
+
 ## Limite de pedidos (força bruta)
 - O 00 limita TODO pedido (120 por minuto por visitante, 240 por usuário logado) e bloqueia o login por 15 minutos
   depois de 5 senhas erradas (SEC.E066). Não redefinir MIDDLEWARE.

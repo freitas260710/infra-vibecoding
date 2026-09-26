@@ -140,6 +140,10 @@ def exigir(usuario, acao, obj_ou_model):
             "acesso negado: usuario=%s acao=%s tabela=%s",
             getattr(usuario, "pk", None), acao, model.__name__,
         )
+        from .acessos import registrar_acesso
+
+        email = getattr(usuario, "email", "") if getattr(usuario, "is_authenticated", False) else ""
+        registrar_acesso("negado", f"{acao} em {model._meta.label}", pessoa=email)
         raise SemPermissao(f"Sem permissão para {acao} em {model.__name__}.")
 
 

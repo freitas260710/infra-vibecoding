@@ -1,0 +1,70 @@
+{% extends "admin/base_site.html" %}
+{% load admin_urls %}
+{% comment %}Registros (US 6.2): histórico dos dados, acessos e erros numa lista só, como a aba Logs do Bubble.
+Só superusuário. Clicar num código mostra tudo o que aconteceu naquele clique.{% endcomment %}
+{% block extrastyle %}{{ block.super }}
+<style>
+  .iv-filtros { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: flex-end; margin: 0 0 16px; }
+  .iv-filtros label { display: block; font-size: .85em; color: var(--body-quiet-color, #666); margin-bottom: 3px; }
+  .iv-filtros input, .iv-filtros select { min-width: 140px; }
+  .iv-origem { display: inline-block; padding: 1px 8px; border-radius: 10px; font-size: .8em; white-space: nowrap; }
+  .iv-dados { background: #e3eefc; color: #1f4f8f; }
+  .iv-acessos { background: #e7f5ea; color: #22643a; }
+  .iv-erros { background: #fde8e8; color: #9b1c1c; }
+  .iv-negado { color: var(--error-fg, #ba2121); font-weight: 600; }
+  #result_list td { vertical-align: top; }
+  .iv-paginas { margin: 12px 0; display: flex; gap: 16px; align-items: center; }
+</style>
+{% endblock %}
+{% block breadcrumbs %}<div class="breadcrumbs">
+  <a href="{% url 'admin:index' %}">Início</a> &rsaquo;
+  <a href="{% url 'admin:app_list' app_label=opts.app_label %}">{{ opts.app_config.verbose_name }}</a> &rsaquo; Registros
+</div>{% endblock %}
+{% block content %}
+<div id="content-main">
+  <form method="get" class="iv-filtros">
+    <div><label for="iv-tipo">Tipo</label>
+      <select id="iv-tipo" name="tipo">
+        <option value="">Tudo</option>
+        <option value="dados"{% if filtros.tipo == "dados" %} selected{% endif %}>Dados (histórico)</option>
+        {% for valor, nome in acoes %}<option value="dados:{{ valor }}"{% if filtros.tipo == "dados:"|add:valor %} selected{% endif %}>&nbsp;&nbsp;dados: {{ nome }}</option>{% endfor %}
+        <option value="acessos"{% if filtros.tipo == "acessos" %} selected{% endif %}>Acessos</option>
+        {% for valor, nome in tipos_de_acesso %}<option value="acessos:{{ valor }}"{% if filtros.tipo == "acessos:"|add:valor %} selected{% endif %}>&nbsp;&nbsp;acessos: {{ nome }}</option>{% endfor %}
+        <option value="erros"{% if filtros.tipo == "erros" %} selected{% endif %}>Erros</option>
+      </select></div>
+    <div><label for="iv-pessoa">Pessoa</label><input id="iv-pessoa" name="pessoa" value="{{ filtros.pessoa }}" placeholder="e-mail"></div>
+    <div><label for="iv-de">De</label><input id="iv-de" type="date" name="de" value="{{ filtros.de }}"></div>
+    <div><label for="iv-ate">Até</label><input id="iv-ate" type="date" name="ate" value="{{ filtros.ate }}"></div>
+    <div><label for="iv-tabela">Tabela</label><input id="iv-tabela" name="tabela" value="{{ filtros.tabela }}" placeholder="ex.: chamados"></div>
+    <div><label for="iv-pedido">Código</label><input id="iv-pedido" name="pedido" value="{{ filtros.pedido }}" placeholder="do clique ou E-..."></div>
+    <div><button type="submit" class="button">Filtrar</button> <a href="?">Limpar</a></div>
+  </form>
+
+  <p>{{ total }} registro(s){% if total %}, mostrando {{ inicio|add:1 }} a {{ fim }}{% endif %}.</p>
+  {% if linhas %}
+  <div class="results">
+    <table id="result_list">
+      <thead><tr><th>Quando</th><th>Tipo</th><th>Pessoa</th><th>O que</th><th>Onde</th><th>Código</th><th></th></tr></thead>
+      <tbody>{% for l in linhas %}
+        <tr class="{% cycle 'row1' 'row2' %}">
+          <td>{{ l.r_quando|date:"d/m/Y H:i:s" }}</td>
+          <td><span class="iv-origem iv-{{ l.r_origem }}">{{ l.r_origem }}</span>
+              <span{% if l.r_tipo == "negado" or l.r_tipo == "bloqueado" %} class="iv-negado"{% endif %}>{{ l.r_tipo_nome }}</span></td>
+          <td>{{ l.r_pessoa|default:"(sem login)" }}</td>
+          <td>{% if l.r_origem == "erros" %}erro interno {{ l.r_o_que }}{% else %}{{ l.r_o_que }}{% endif %}</td>
+          <td>{{ l.r_onde }}{% if l.r_origem != "dados" and l.r_extra %}<br><small>{{ l.r_extra }}</small>{% endif %}</td>
+          <td>{% if l.r_pedido %}<a href="?pedido={{ l.r_pedido }}">{{ l.r_pedido }}</a>{% endif %}</td>
+          <td>{% if l.r_origem == "dados" %}<a href="{% url 'admin:infra_vibecoding_historico_change' l.r_id %}">detalhes</a>{% else %}<a href="{% url 'admin:infra_vibecoding_acesso_change' l.r_id %}">detalhes</a>{% endif %}</td>
+        </tr>
+      {% endfor %}</tbody>
+    </table>
+  </div>
+  <div class="iv-paginas">
+    {% if anterior %}<a href="{{ anterior }}">&lsaquo; Mais novos</a>{% endif %}
+    {% if proxima %}<a href="{{ proxima }}">Mais antigos &rsaquo;</a>{% endif %}
+  </div>
+  {% else %}
+    <p>Nenhum registro com esses filtros.</p>
+  {% endif %}
+</div>
+{% endblock %}

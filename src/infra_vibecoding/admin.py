@@ -70,10 +70,28 @@ class _CamposRelacionadosSeguros:
         return super().formfield_for_manytomany(db_field, request, **kwargs)
 
 
+_SESSAO_TELA_DE_BANCO = "infra_vibecoding_tela_de_banco"
+
+
+def _registrar(tipo, detalhe, request=None):
+    from .acessos import registrar_acesso
+
+    registrar_acesso(tipo, detalhe, request=request)
+
+
+def _registrar_entrada(request):
+    """Entrada na tela de banco: registrada uma vez por login (US 6.2)."""
+    sessao = getattr(request, "session", None)
+    if sessao is not None and not sessao.get(_SESSAO_TELA_DE_BANCO):
+        sessao[_SESSAO_TELA_DE_BANCO] = True
+        _registrar("tela_de_banco", "entrou na tela de banco", request)
+
+
 def _tela_como_sistema(view):
     @wraps(view)
     def tela(request, *args, **kwargs):
         log.info("%s", _motivo(request, f"abriu {request.path}"))
+        _registrar_entrada(request)
         with _leitura_da_tela_de_banco():
             return view(request, *args, **kwargs)
 
@@ -112,6 +130,7 @@ class AdminSeguro(_CamposRelacionadosSeguros, admin.ModelAdmin):
         queryset = lista.get_queryset(request)
         resposta, total = planilhas.exportar(self.model, queryset, formato, self.opts.model_name)
         log.info("%s", _motivo(request, f"exportou {total} linha(s) de {self.opts.label} ({formato})"))
+        _registrar("planilha", f"exportou {total} linha(s) de {self.opts.label} ({formato})", request)
         return resposta
 
     def importar_planilha(self, request):
@@ -174,6 +193,8 @@ class AdminSeguro(_CamposRelacionadosSeguros, admin.ModelAdmin):
                 return render(request, template, contexto)
             planilhas.descartar(token)
             log.info("%s: %s novo(s), %s atualizado(s)", motivo, resultado.novos, resultado.atualizados)
+            _registrar("planilha", f"importou '{nome}' em {self.opts.label}: {resultado.novos} novo(s), "
+                                   f"{resultado.atualizados} atualizado(s)", request)
             messages.success(request, f"Planilha '{nome}' importada: {resultado.novos} novo(s) e "
                                       f"{resultado.atualizados} atualizado(s).")
             return redirect(lista)
@@ -298,6 +319,7 @@ def entrar_pela_tela_do_00(request, extra_context=None):
         if admin.site.has_permission(request):
             return redirect(destino)
         log.warning("%s", _motivo(request, "tentou abrir a tela de banco sem permissão"))
+        _registrar("negado", "tela de banco", request)
         raise PermissionDenied("Você não tem acesso à tela de banco.")
     return redirect(f"{resolve_url(settings.LOGIN_URL)}?{urlencode({'next': destino})}")
 
@@ -400,6 +422,7 @@ class AdminUsuarioSeguro(AdminSeguro, UserAdmin):
     def user_change_password(self, request, id, form_url=""):
         """Definir a senha de outra pessoa pela tela de banco: bloqueado (D43)."""
         log.warning("%s", _motivo(request, f"tentou definir a senha do usuário {id} pela tela de banco (bloqueado)"))
+        _registrar("negado", f"definir a senha do usuário {id} pela tela de banco", request)
         raise PermissionDenied(
             "Ninguém define a senha de outra pessoa. Use a ação 'Enviar link de acesso por e-mail' na lista de "
             "usuários: a pessoa define a própria senha pelo link."
@@ -542,13 +565,88 @@ class AdminHistorico(AdminSeguro):
         return request.user.is_active and request.user.is_staff and request.user.is_superuser
 
 
+# Registros (US 6.2): a tela única da tela de banco com histórico dos dados, acessos e erros. Só superusuário, só
+# leitura. Cada acesso também abre sozinho (detalhe), sem editar nem apagar.
+
+class AdminAcesso(AdminSeguro):
+    permite_planilha = False
+    readonly_fields = ("quando", "pedido", "tipo", "pessoa", "endereco", "navegador", "tela", "detalhe")
+    fields = readonly_fields
+    actions = None
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    def has_view_permission(self, request, obj=None):
+        return request.user.is_active and request.user.is_staff and request.user.is_superuser
+
+    def changelist_view(self, request, extra_context=None):
+        from django.shortcuts import render
+        from django.utils.dateparse import parse_date
+
+        from .acessos import POR_PAGINA, consultar_registros
+        from .models import Acesso, Historico
+
+        if not self.has_view_permission(request):
+            raise PermissionDenied
+        g = request.GET
+        filtros = {"tipo": g.get("tipo", ""), "pessoa": g.get("pessoa", ""), "de": g.get("de", ""),
+                   "ate": g.get("ate", ""), "tabela": g.get("tabela", ""), "pedido": g.get("pedido", "")}
+        try:
+            inicio = max(int(g.get("inicio", 0)), 0)
+        except ValueError:
+            inicio = 0
+        linhas, total = consultar_registros(
+            tipo=filtros["tipo"], pessoa=filtros["pessoa"], de=parse_date(filtros["de"] or "") if filtros["de"] else None,
+            ate=parse_date(filtros["ate"] or "") if filtros["ate"] else None, tabela=filtros["tabela"],
+            pedido=filtros["pedido"], inicio=inicio,
+        )
+        from django.http import QueryDict
+
+        def pagina(novo_inicio):
+            q = QueryDict(mutable=True)
+            q.update({k: v for k, v in filtros.items() if v})
+            q["inicio"] = str(novo_inicio)
+            return "?" + q.urlencode()
+
+        contexto = {
+            **self.admin_site.each_context(request), "opts": self.opts, "title": "Registros",
+            "linhas": linhas, "total": total, "filtros": filtros, "inicio": inicio,
+            "fim": inicio + len(linhas),
+            "anterior": pagina(max(inicio - POR_PAGINA, 0)) if inicio > 0 else "",
+            "proxima": pagina(inicio + POR_PAGINA) if inicio + len(linhas) < total else "",
+            "acoes": Historico.ACOES, "tipos_de_acesso": [t for t in Acesso.TIPOS if t[0] != "erro"],
+        }
+        return render(request, "infra_vibecoding/admin/registros.html", contexto)
+
+
+def registrar_entrada_no_inicio(site):
+    """A página inicial da tela de banco também registra a entrada (uma vez por login)."""
+    original = site.index
+
+    @wraps(original)
+    def index(request, extra_context=None):
+        _registrar_entrada(request)
+        return original(request, extra_context)
+
+    site.index = index
+
+
 def _registrar_tabelas_do_00():
-    from .models import Historico, LinkDeCompartilhamento
+    from .models import Acesso, Historico, LinkDeCompartilhamento
 
     if not admin.site.is_registered(LinkDeCompartilhamento):
         admin.site.register(LinkDeCompartilhamento, AdminLinkDeCompartilhamento)
     if not admin.site.is_registered(Historico):
         admin.site.register(Historico, AdminHistorico)
+    if not admin.site.is_registered(Acesso):
+        admin.site.register(Acesso, AdminAcesso)
 
 
 _registrar_tabelas_do_00()

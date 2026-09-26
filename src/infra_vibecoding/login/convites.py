@@ -79,6 +79,9 @@ def enviar_link_de_senha(request, usuario):
                                 update_fields=["link_enviado_em"])
     log.info("login: link de %s enviado para %s", "primeiro acesso" if tipo == "convite" else "redefinição",
              usuario.email)
+    from ..acessos import registrar_acesso
+
+    registrar_acesso("link", "primeiro acesso" if tipo == "convite" else "redefinição de senha", pessoa=usuario.email)
     return True
 
 

@@ -1,5 +1,31 @@
 # Histórico de versões
 
+## 0.4.1
+
+Registro de acessos e tela única de Registros (US 6.2, decisão D60).
+
+- Registro de acessos automático, numa tabela do 00: entrou, senha errada (com o e-mail digitado), bloqueado (login
+  bloqueado ou limite de pedidos, só o primeiro de cada minuto), saiu (inclusive desconectado de todos os aparelhos),
+  acesso negado (no máximo um por clique, com a regra que barrou), verificação em duas etapas (ligou, desligou,
+  códigos novos, código errado, código de recuperação usado), senha (definiu ou trocou), link de acesso enviado,
+  download de arquivo privado e por link de compartilhamento (e tentativas barradas), planilha exportada ou
+  importada, entrada na tela de banco (uma vez por login) e erro interno (o código do erro).
+- Cada linha: quando, código do clique, pessoa, endereço de internet, navegador, tela e o que aconteceu. Nunca guarda
+  senha, código, link ou chave. Navegação comum, leituras, conteúdo de formulário, página que não existe e arquivo de
+  campo público não entram.
+- Gravado no fim do clique, fora da transação da tela: um acesso negado dentro de uma gravação desfeita continua
+  registrado. Se o registro falhar, a tela segue e a falha vai para o registro do servidor.
+- Ninguém altera nem apaga um acesso pelas telas. Guardado por um ano: `limpar_acessos_antigos()` e o comando
+  `uv run python manage.py limpar_registros` apagam o que passou disso (até a etapa 5, rodar uma vez por dia). O
+  histórico dos dados continua para sempre.
+- Tela de banco, Infra Vibecoding > Registros (só superusuário): histórico dos dados, acessos e erros numa lista só,
+  do mais novo para o mais antigo, 100 por página, com filtros por tipo, pessoa, período, tabela e código do clique
+  (aceita o código do erro, E-...). Clicar num código mostra tudo o que aconteceu naquele clique. Cada linha abre o
+  detalhe, só leitura.
+- `registrar_acesso(tipo, detalhe)` para eventos de segurança do próprio sistema.
+- Ao atualizar para esta versão: rodar `migrate` (tabela nova de acessos).
+- 490 testes automáticos.
+
 ## 0.4.0
 
 Histórico automático e código do pedido (US 6.1, etapa 6, decisões D36 e D60).

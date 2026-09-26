@@ -100,3 +100,43 @@ class Historico(ModeloSeguro):
 
     def delete(self, *args, **kwargs):
         raise PermissionError("O histórico não pode ser apagado.")
+
+
+class Acesso(ModeloSeguro):
+    """Registro de acessos (US 6.2, D60): entradas, senhas erradas, bloqueios, saídas, acessos negados, verificação em
+    duas etapas, senha, links de acesso, downloads, planilhas, tela de banco e erros. Ninguém edita. Guardado por um
+    ano: o mais antigo é apagado pela limpeza (infra_vibecoding.acessos.limpar_acessos_antigos)."""
+
+    TIPOS = [
+        ("entrou", "entrou"), ("senha_errada", "senha errada"), ("bloqueado", "bloqueado"), ("saiu", "saiu"),
+        ("negado", "acesso negado"), ("dois_fatores", "verificação em duas etapas"), ("senha", "senha"),
+        ("link", "link de acesso"), ("download", "download"), ("planilha", "planilha"),
+        ("tela_de_banco", "tela de banco"), ("erro", "erro"),
+    ]
+
+    quando = models.DateTimeField("quando", auto_now_add=True, db_index=True)
+    pedido = models.CharField("código do pedido", max_length=16, blank=True, db_index=True)
+    tipo = models.CharField("tipo", max_length=20, choices=TIPOS, db_index=True)
+    pessoa = models.CharField("pessoa", max_length=254, blank=True, db_index=True)
+    endereco = models.CharField("endereço de internet", max_length=45, blank=True)
+    navegador = models.CharField("navegador", max_length=300, blank=True)
+    tela = models.CharField("tela", max_length=300, blank=True)
+    detalhe = models.CharField("detalhe", max_length=500, blank=True)
+
+    _somente_inclusao = True  # só a limpeza de um ano apaga (pelo gerenciador base, nunca pelas telas)
+
+    class Meta:
+        verbose_name = "registro"
+        verbose_name_plural = "registros"
+        ordering = ["-quando", "-id"]
+
+    def __str__(self):
+        return f"{self.quando:%d/%m/%Y %H:%M} {self.get_tipo_display()} {self.pessoa}"
+
+    def save(self, *args, **kwargs):
+        if not self._state.adding:
+            raise PermissionError("O registro de acessos não pode ser alterado.")
+        return super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        raise PermissionError("O registro de acessos não pode ser apagado um a um. Só a limpeza de um ano apaga.")

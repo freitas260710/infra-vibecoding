@@ -86,3 +86,16 @@ def renomear_pedido(request, pk):
     pedido.titulo = request.GET.get("titulo", "novo")
     pedido.salvar(request.user)
     return HttpResponse("ok")
+
+
+# US 6.2: a regra barra dentro de uma transação (as gravações da tela são desfeitas; o acesso negado fica).
+@logado
+def negado_em_transacao(request):
+    from django.db import transaction
+
+    from infra_vibecoding.dados import exigir
+
+    with transaction.atomic():
+        Pedido(dono=request.user, titulo="desfeito").salvar(request.user)
+        exigir(request.user, "aprovar", Pedido)
+    return HttpResponse("não chega aqui")

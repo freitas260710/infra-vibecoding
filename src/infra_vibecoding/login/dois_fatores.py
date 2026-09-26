@@ -202,6 +202,7 @@ def usar_codigo_de_recuperacao(usuario, texto):
                 f"(restam {len(usuario.codigos_de_recuperacao)})",
                 update_fields=["codigos_de_recuperacao"],
             )
+            _registrar(usuario, f"usou um código de recuperação (restam {len(usuario.codigos_de_recuperacao)})")
             return True
     return False
 
@@ -238,6 +239,7 @@ def ligar(usuario, metodo, chave=None, passo=0, motivo=""):
     usuario.codigos_de_recuperacao = resumos
     usuario.salvar_como_sistema(motivo or f"2fa: {usuario.email} ligou a verificação em duas etapas ({metodo})",
                                 update_fields=list(_CAMPOS))
+    _registrar(usuario, f"ligou ({'app autenticador' if metodo == APP else 'código por e-mail'})", motivo)
     return codigos
 
 
@@ -248,13 +250,21 @@ def desligar(usuario, motivo):
     usuario.ultimo_codigo_do_app = 0
     usuario.codigos_de_recuperacao = []
     usuario.salvar_como_sistema(motivo, update_fields=list(_CAMPOS))
+    _registrar(usuario, "desligou", motivo)
 
 
 def trocar_codigos(usuario, motivo):
     codigos, resumos = novos_codigos_de_recuperacao()
     usuario.codigos_de_recuperacao = resumos
     usuario.salvar_como_sistema(motivo, update_fields=["codigos_de_recuperacao"])
+    _registrar(usuario, "gerou códigos de recuperação novos", motivo)
     return codigos
+
+
+def _registrar(usuario, o_que, motivo=""):
+    from ..acessos import registrar_acesso
+
+    registrar_acesso("dois_fatores", f"{o_que} ({motivo})" if motivo else o_que, pessoa=usuario.email)
 
 
 _CAMPOS = ("dois_fatores", "dois_fatores_desde", "segredo_do_app", "ultimo_codigo_do_app", "codigos_de_recuperacao")
@@ -306,6 +316,7 @@ class ExigeDoisFatores:
         if getattr(usuario, "dois_fatores", "") and not request.session.get(SESSAO_OK):
             log.warning("2fa: sessão de %s sem a verificação em duas etapas foi derrubada (%s)",
                         usuario.email, request.path)
+            _registrar(usuario, "sessão sem a verificação em duas etapas derrubada")
             logout(request)
             return _redirecionar(request, resolve_url(settings.LOGIN_URL))
         exigido = exigencia(usuario)

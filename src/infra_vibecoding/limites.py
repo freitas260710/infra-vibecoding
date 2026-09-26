@@ -49,6 +49,18 @@ def endereco_de(request):
     return request.META.get("REMOTE_ADDR", "") if request is not None else ""
 
 
+def _registrar_limite(request, quem, detalhe):
+    from .acessos import registrar_limite
+
+    registrar_limite(request, quem, detalhe)
+
+
+def _registrar_bloqueio(request, email, detalhe):
+    from .acessos import registrar_acesso
+
+    registrar_acesso("bloqueado", detalhe, pessoa=email, request=request)
+
+
 def _em_teste():
     """Rodando nos testes automáticos (o Django cria mail.outbox só neles) e sem pedir os limites ligados."""
     return hasattr(mail, "outbox") and not getattr(settings, "LIMITES_NOS_TESTES", False)
@@ -98,10 +110,12 @@ class LimiteDePedidos:
                 if contar("pedidos-usuario", usuario.pk, 60) > limite_por_usuario():
                     log.warning("limite: usuário %s passou de %s pedidos por minuto (%s)",
                                 getattr(usuario, "email", usuario.pk), limite_por_usuario(), request.path)
+                    _registrar_limite(request, f"u{usuario.pk}", "passou do limite de pedidos por minuto")
                     return muitas_tentativas(request)
             elif contar("pedidos-endereco", endereco_de(request), 60) > limite_por_endereco():
                 log.warning("limite: endereço %s passou de %s pedidos por minuto (%s)",
                             endereco_de(request), limite_por_endereco(), request.path)
+                _registrar_limite(request, endereco_de(request), "passou do limite de pedidos por minuto")
                 return muitas_tentativas(request)
         return self.get_response(request)
 
@@ -117,6 +131,7 @@ def limite(por_minuto):
         quem = f"u{usuario.pk}" if usuario is not None and usuario.is_authenticated else endereco_de(request)
         if contar(f"acao:{nome}", quem, 60) > por_minuto:
             log.warning("limite: %s passou de %s por minuto em %s", quem, por_minuto, nome)
+            _registrar_limite(request, f"{quem}:{nome}", f"passou do limite de {por_minuto} por minuto desta ação")
             return muitas_tentativas(request)
         return None
 
@@ -158,6 +173,8 @@ def registrar_senha_errada(email, request):
     if contar("login-erro-email", email, LOGIN_JANELA) >= LOGIN_POR_EMAIL:
         cache.set(_chave("login-bloqueio-email", email), True, LOGIN_BLOQUEIO)
         log.warning("limite: login bloqueado por 15 minutos para %s (senhas erradas demais)", email)
+        _registrar_bloqueio(request, email, "login bloqueado por 15 minutos: senhas erradas demais")
     if contar("login-erro-endereco", endereco, LOGIN_JANELA) >= LOGIN_POR_ENDERECO:
         cache.set(_chave("login-bloqueio-endereco", endereco), True, LOGIN_BLOQUEIO)
         log.warning("limite: login bloqueado por 15 minutos para o endereço %s (tentativas demais)", endereco)
+        _registrar_bloqueio(request, email, "login bloqueado por 15 minutos: tentativas demais deste endereço")

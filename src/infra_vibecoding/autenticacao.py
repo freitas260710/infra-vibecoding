@@ -22,6 +22,9 @@ class BackendSeguro(ModelBackend):
             raise PermissionDenied("Muitas tentativas de entrar. Espere 15 minutos.")
         usuario = super().authenticate(request, username=username, password=password, **kwargs)
         if usuario is None:
+            from .acessos import registrar_acesso
+
+            registrar_acesso("senha_errada", "", pessoa=email, request=request)
             limites.registrar_senha_errada(email, request)
         return usuario
 

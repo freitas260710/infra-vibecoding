@@ -17,6 +17,7 @@ import logging
 
 from django.contrib.auth import update_session_auth_hash
 
+from ..acessos import registrar_acesso
 from ..dados import pode
 from ..usuarios import nova_chave_de_sessao
 
@@ -36,9 +37,11 @@ def desconectar(quem_pede, usuarios, request=None):
     for usuario in usuarios:
         if usuario.pk != quem_pede.pk and not pode(quem_pede, "desconectar", usuario):
             log.warning("login: %s tentou desconectar %s (sem permissão)", autor, usuario.email)
+            registrar_acesso("negado", f"desconectar {usuario.email}", pessoa=autor)
             negados.append(usuario)
             continue
         trocar_chave_de_sessao(usuario, f"login: {autor} desconectou {usuario.email} (todas as sessões)")
+        registrar_acesso("saiu", f"desconectado de todos os aparelhos por {autor}", pessoa=usuario.email)
         derrubados.append(usuario)
         if request is not None and usuario.pk == quem_pede.pk:
             # Quem pediu continua conectado nesta tela.

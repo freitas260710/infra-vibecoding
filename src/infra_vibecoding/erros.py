@@ -77,6 +77,9 @@ def sem_permissao(request, exception=None):
     usuario = getattr(request, "user", None)
     quem = getattr(usuario, "email", None) or "visitante"
     auditoria.warning("acesso negado: %s em %s %s", quem, request.method, request.path)
+    from .acessos import registrar_acesso
+
+    registrar_acesso("negado", "tela sem permissão", request=request)
     if _eh_htmx(request):
         return _frase(request, 403, 403)
     return _pagina(request, "403.html", 403)
@@ -95,6 +98,12 @@ def erro_interno(request):
     codigo = novo_codigo()
     log.error("erro interno %s em %s %s", codigo, getattr(request, "method", ""), getattr(request, "path", ""),
               exc_info=True)
+    try:
+        from .acessos import registrar_acesso
+
+        registrar_acesso("erro", codigo, request=request)
+    except Exception:  # a página de erro aparece mesmo se o registro falhar
+        log.exception("erro interno %s: não foi possível registrar o acesso", codigo)
     if _eh_htmx(request):
         return _frase(request, 500, 500, codigo)
     resposta = HttpResponse(loader.get_template("500.html").render({"codigo": codigo}), status=500)

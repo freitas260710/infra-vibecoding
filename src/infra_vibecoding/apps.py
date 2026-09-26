@@ -14,6 +14,11 @@ class InfraVibecodingConfig(AppConfig):
         # Ninguém silencia as checagens do 00 (US 2.1).
         checagens.conferir_checagens_silenciadas(getattr(settings, "SILENCED_SYSTEM_CHECKS", []))
 
+        # Páginas de erro em português, sem nada técnico (US 3.5).
+        from .erros import ligar_paginas_de_erro
+
+        ligar_paginas_de_erro()
+
         # Carrega o politicas.py de cada app do sistema.
         autodiscover_modules("politicas")
 

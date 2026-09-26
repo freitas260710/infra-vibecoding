@@ -56,3 +56,24 @@ def exportar(request):
 class Relatorio2View(View):
     def get(self, request):
         return HttpResponse("relatório pesado")
+
+
+# US 3.5: telas que dão erro de propósito.
+@publica
+def quebrada(request):
+    raise RuntimeError("detalhe técnico que não pode aparecer na tela: senha=abc123")
+
+
+@publica
+def pedido_ruim(request):
+    from django.core.exceptions import SuspiciousOperation
+
+    raise SuspiciousOperation("detalhe técnico do pedido ruim")
+
+
+@logado
+def pedido_de_outro(request, pk):
+    from django.shortcuts import get_object_or_404
+
+    pedido = get_object_or_404(Pedido.objects.para(request.user), pk=pk)
+    return HttpResponse(pedido.titulo)

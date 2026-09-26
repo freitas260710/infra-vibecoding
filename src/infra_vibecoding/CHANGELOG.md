@@ -1,5 +1,16 @@
 # Histórico de versões
 
+## 0.2.7
+
+Páginas de erro em português (US 3.5).
+
+- O 00 liga sozinho as páginas de erro, sem nada técnico na tela: 404 "não encontrado" (também para registro que a regra não deixa ver, sem confirmar que existe), 403 "sem permissão" (registrado), 403 "a página ficou aberta muito tempo" (proteção CSRF), 400 "pedido inválido" e 500 "algo deu errado" com um código curto (ex.: E-7F3K2). O mesmo código vai para o registro com o erro completo.
+- Pedido feito por um pedaço da tela (HTMX): a resposta é só uma frase curta. O script `infra_vibecoding/erros.js` mostra a frase num aviso no topo da tela.
+- No Mac continua a página detalhada do Django. Para ver as páginas de erro como o usuário vê: `/erros/ver/404/` (também 400, 403, 403_csrf, 429 e 500), só com DEBUG ligado.
+- O sistema troca o visual criando `404.html`, `403.html`, `403_csrf.html`, `400.html` ou `500.html` na pasta templates dele. Checagens SEC.E111 (sem `handler404` etc. no urls.py), SEC.E112 (`CSRF_FAILURE_VIEW` do 00) e SEC.E113 (`500.html` mostra o código do erro).
+- Ao atualizar para esta versão: nenhuma migração. Se o urls.py do sistema tiver `handler404`, `handler500` etc., apagar. Se usar HTMX, carregar o `erros.js` no base.html.
+- 364 testes automáticos.
+
 ## 0.2.6
 
 Verificação em duas etapas (US 3.4, decisão D51).

@@ -68,6 +68,18 @@ quebradas. Mesmo assim, siga todas: acertar de primeira é mais rápido do que e
 - Telas feitas com templates do Django e HTMX.
 - Proibido: `@csrf_exempt`, `mark_safe`, `|safe` e `autoescape off` com dado vindo de usuário.
 
+## Páginas de erro
+- As páginas de erro são do 00, em português e sem nada técnico: 404, 403, 403 de formulário vencido (CSRF), 400,
+  500 (com código do erro que também vai para o registro) e 429. Nunca criar `handler404`, `handler500` etc. no
+  urls.py (SEC.E111) nem `CSRF_FAILURE_VIEW` próprio (SEC.E112). Nunca mostrar erro técnico na tela.
+- Visual: criar na pasta templates do sistema `404.html`, `403.html`, `403_csrf.html`, `400.html`, `500.html` ou
+  `infra_vibecoding/limite.html`. O `500.html` não usa banco, usuário nem `{% url %}` e mantém `{{ codigo }}`
+  (SEC.E113). Para conferir no Mac: `/erros/ver/404/` (também 400, 403, 403_csrf, 429, 500).
+- Registro de outra pessoa ou empresa: buscar sempre com `.para(request.user)` e `get_object_or_404`, que responde
+  "não encontrado" sem confirmar que o registro existe.
+- HTMX: carregar no base.html, depois do htmx, `<script src="{% static 'infra_vibecoding/erros.js' %}" defer>`.
+  Ele mostra no topo da tela a frase curta que o 00 responde quando um pedido dá erro.
+
 ## Limite de pedidos (força bruta)
 - O 00 limita TODO pedido (120 por minuto por visitante, 240 por usuário logado) e bloqueia o login por 15 minutos
   depois de 5 senhas erradas (SEC.E066). Não redefinir MIDDLEWARE.

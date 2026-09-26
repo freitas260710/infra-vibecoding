@@ -530,3 +530,48 @@ def sec06_dois_fatores(app_configs=None, **kwargs):
                 id="SEC.E069",
             ))
     return erros
+
+
+# Páginas de erro (US 3.5)
+
+_CSRF_00 = "infra_vibecoding.erros.formulario_vencido"
+
+
+@register(Tags.urls)
+def sec11_paginas_de_erro(app_configs=None, **kwargs):
+    """As páginas de erro são as do 00: o sistema troca só o visual (templates), nunca quando elas aparecem."""
+    import importlib
+
+    from django.template import TemplateDoesNotExist, loader
+
+    erros = []
+    raiz = getattr(settings, "ROOT_URLCONF", None)
+    if raiz:
+        modulo = importlib.import_module(raiz) if isinstance(raiz, str) else raiz
+        proprios = [f"handler{n}" for n in (400, 403, 404, 500) if hasattr(modulo, f"handler{n}")]
+        if proprios:
+            erros.append(Error(
+                f"O urls.py do sistema troca as páginas de erro do 00 ({', '.join(proprios)}).",
+                hint="Apague essas linhas. Para mudar o visual, crie templates/404.html, 403.html, 403_csrf.html, "
+                     "400.html ou 500.html na pasta templates do sistema.",
+                id="SEC.E111",
+            ))
+    if getattr(settings, "CSRF_FAILURE_VIEW", "") != _CSRF_00:
+        erros.append(Error(
+            "CSRF_FAILURE_VIEW trocado: a página de formulário vencido precisa ser a do 00.",
+            hint=f"Não redefina CSRF_FAILURE_VIEW: ele vem do 00 como '{_CSRF_00}'. Para mudar o visual, crie "
+                 "templates/403_csrf.html.",
+            id="SEC.E112",
+        ))
+    try:
+        fonte = getattr(loader.get_template("500.html").template, "source", "")
+    except TemplateDoesNotExist:
+        fonte = ""
+    if "codigo" not in fonte:
+        erros.append(Error(
+            "A página de erro interno (500.html) não mostra o código do erro.",
+            hint="Mantenha {{ codigo }} no 500.html do sistema: é o que liga a reclamação do usuário ao erro no "
+                 "registro.",
+            id="SEC.E113",
+        ))
+    return erros

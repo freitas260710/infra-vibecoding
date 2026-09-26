@@ -175,6 +175,7 @@ SESSION_COOKIE_SAMESITE = "Lax"
 SESSION_COOKIE_SECURE = PRODUCAO
 SESSION_COOKIE_AGE = 60 * 60 * 12  # 12 horas
 CSRF_COOKIE_SAMESITE = "Lax"
+CSRF_FAILURE_VIEW = "infra_vibecoding.erros.formulario_vencido"  # "a página ficou aberta muito tempo" (US 3.5)
 CSRF_COOKIE_SECURE = PRODUCAO
 
 # HTTPS obrigatório em produção (atrás do proxy do servidor, que informa o protocolo original).
@@ -206,5 +207,6 @@ LOGGING = {
     "handlers": {"console": {"class": "logging.StreamHandler"}},
     "loggers": {
         "infra_vibecoding.auditoria": {"handlers": ["console"], "level": "INFO", "propagate": True},
+        "infra_vibecoding.erros": {"handlers": ["console"], "level": "INFO", "propagate": True},
     },
 }

@@ -1,0 +1,15 @@
+{% comment %}
+Base das páginas de erro do Infra Vibecoding. O sistema troca o visual criando na pasta templates dele o arquivo
+com o mesmo nome da página (404.html, 403.html, 403_csrf.html, 400.html, 500.html). Nada técnico na tela.
+{% endcomment %}<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block titulo %}Erro{% endblock %}</title>
+</head>
+<body>
+  {% block conteudo %}{% endblock %}
+  <p><a href="/">Voltar para o início</a></p>
+</body>
+</html>

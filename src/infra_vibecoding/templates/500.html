@@ -1,0 +1,17 @@
+{% comment %}
+Página de erro interno. Não pode depender do banco nem do usuário logado (o erro pode ter sido justamente aí):
+sem {% url %}, sem request, sem dados. Precisa mostrar o código do erro (SEC.E113).
+{% endcomment %}<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Algo deu errado</title>
+</head>
+<body>
+  <h1>Algo deu errado</h1>
+  <p>Não foi possível concluir. Tente de novo em alguns minutos.</p>
+  <p>Se continuar, informe ao suporte o código do erro: <strong>{{ codigo }}</strong></p>
+  <p><a href="/">Voltar para o início</a></p>
+</body>
+</html>

@@ -14,4 +14,7 @@ urlpatterns = [
     path("relatorio/", views.RelatorioView.as_view()),
     path("exportar/", views.exportar),
     path("relatorio-pesado/", views.Relatorio2View.as_view()),
+    path("quebrada/", views.quebrada),
+    path("pedido-ruim/", views.pedido_ruim),
+    path("pedidos/<int:pk>/", views.pedido_de_outro),
 ]

@@ -37,7 +37,7 @@ from contextlib import contextmanager
 from contextvars import ContextVar
 
 from django.core.exceptions import PermissionDenied
-from django.db import models
+from django.db import models, transaction
 
 log = logging.getLogger("infra_vibecoding.auditoria")
 
@@ -203,10 +203,12 @@ class QuerySetSeguro(models.QuerySet):
     # None = sem escopo, "usuario" = via para(usuario), "sistema" = via como_sistema(motivo),
     # "regra" = via Politica.consultar(Model), só leitura e só enquanto a regra roda
     _escopo = None
+    _motivo = ""
 
     def _clone(self):
         c = super()._clone()
         c._escopo = self._escopo
+        c._motivo = self._motivo
         return c
 
     def _exigir_escopo(self):
@@ -262,7 +264,21 @@ class QuerySetSeguro(models.QuerySet):
         log.info("como sistema: %s (motivo: %s)", self.model.__name__, motivo)
         qs = self._clone()
         qs._escopo = "sistema"
+        qs._motivo = motivo
         return qs
+
+    @contextmanager
+    def _como_autor_sistema(self):
+        """Gravações feitas por esta consulta "como sistema" entram no histórico com o motivo dela (US 6.1)."""
+        token = _AUTOR.set(("sistema", self._motivo))
+        try:
+            yield
+        finally:
+            _AUTOR.reset(token)
+
+    def _exigir_que_aceita_mudanca(self, operacao):
+        if getattr(self.model, "_somente_inclusao", False):
+            raise EscritaSemAutorizacao(f"{self.model.__name__}: {operacao} não é permitida. Só inclusão.")
 
     # Leitura: todos os pontos em que o Django vai ao banco.
     def _fetch_all(self):
@@ -304,30 +320,53 @@ class QuerySetSeguro(models.QuerySet):
                 f"ou .como_sistema('motivo').create(...)."
             )
         obj = self.model(**campos)
-        with _autorizar(obj):
+        with self._como_autor_sistema(), _autorizar(obj):
             obj.save(force_insert=True, using=self.db)
         return obj
 
     def update_or_create(self, *args, **kwargs):
         self._exigir_sistema("atualizar ou criar")
-        with _modo_sistema():
+        with self._como_autor_sistema(), _modo_sistema():
             return super().update_or_create(*args, **kwargs)
 
+    # Operações em massa: cada registro afetado entra no histórico (US 6.1, D60), na mesma transação.
     def bulk_create(self, objs, *args, **kwargs):
         self._exigir_sistema("criação")
-        return super().bulk_create(objs, *args, **kwargs)
+        from . import historico
+
+        with transaction.atomic(using=self.db), self._como_autor_sistema():
+            criados = super().bulk_create(objs, *args, **kwargs)
+            historico.depois_de_criar_em_massa(criados)
+        return criados
 
     def bulk_update(self, objs, *args, **kwargs):
         self._exigir_sistema("alteração")
-        return super().bulk_update(objs, *args, **kwargs)
+        self._exigir_que_aceita_mudanca("alteração")
+        from . import historico
+
+        objs = list(objs)
+        with transaction.atomic(using=self.db), self._como_autor_sistema():
+            antes = historico.fotos_em_massa(self.model._base_manager.filter(pk__in=[o.pk for o in objs]))
+            resultado = super().bulk_update(objs, *args, **kwargs)
+            historico.depois_de_alterar_em_massa(self.model, antes)
+        return resultado
 
     def update(self, **kwargs):
         self._exigir_sistema("alteração")
-        return super().update(**kwargs)
+        self._exigir_que_aceita_mudanca("alteração")
+        from . import historico
+
+        with transaction.atomic(using=self.db), self._como_autor_sistema():
+            antes = historico.fotos_em_massa(self)
+            resultado = super().update(**kwargs)
+            historico.depois_de_alterar_em_massa(self.model, antes)
+        return resultado
 
     def delete(self):
         self._exigir_sistema("exclusão")
-        return super().delete()
+        self._exigir_que_aceita_mudanca("exclusão")
+        with transaction.atomic(using=self.db), self._como_autor_sistema():
+            return super().delete()  # o histórico de cada registro excluído vem pelo sinal post_delete
 
 
 class GerenciadorSeguro(models.Manager.from_queryset(QuerySetSeguro)):
@@ -386,8 +425,12 @@ class ModeloSeguro(models.Model):
         if original is None:
             raise SemPermissao(f"Registro de {type(self).__name__} não encontrado.")
         exigir(usuario, "excluir", original)
-        with _autorizar(self):
-            return self.delete()
+        token = _AUTOR.set(("usuario", usuario))
+        try:
+            with _autorizar(self):
+                return self.delete()
+        finally:
+            _AUTOR.reset(token)
 
     def salvar_como_sistema(self, motivo, *args, **kwargs):
         _exigir_motivo(motivo)
@@ -403,8 +446,12 @@ class ModeloSeguro(models.Model):
     def excluir_como_sistema(self, motivo):
         _exigir_motivo(motivo)
         log.info("exclusão como sistema: %s pk=%s (motivo: %s)", type(self).__name__, self.pk, motivo)
-        with _autorizar(self):
-            return self.delete()
+        token = _AUTOR.set(("sistema", motivo))
+        try:
+            with _autorizar(self):
+                return self.delete()
+        finally:
+            _AUTOR.reset(token)
 
     def save(self, *args, **kwargs):
         if not _autorizado(self):
@@ -412,7 +459,18 @@ class ModeloSeguro(models.Model):
                 f"{type(self).__name__}: gravação sem dizer quem está fazendo. "
                 f"Use obj.salvar(usuario) ou obj.salvar_como_sistema('motivo')."
             )
-        return super().save(*args, **kwargs)
+        from . import historico
+
+        if not historico.deve_registrar(type(self)):
+            return super().save(*args, **kwargs)
+        # Histórico automático (US 6.1): a gravação e a linha do histórico entram juntas ou nenhuma entra.
+        campos = kwargs.get("update_fields")
+        with transaction.atomic(using=kwargs.get("using") or self._state.db or "default"):
+            criando = self._state.adding
+            antes = None if criando else historico.foto(self, campos)
+            resultado = super().save(*args, **kwargs)
+            historico.depois_de_salvar(self, antes, criando or antes is None, campos)
+        return resultado
 
     def delete(self, *args, **kwargs):
         if not _autorizado(self):
@@ -420,4 +478,5 @@ class ModeloSeguro(models.Model):
                 f"{type(self).__name__}: exclusão sem dizer quem está fazendo. "
                 f"Use obj.excluir(usuario) ou obj.excluir_como_sistema('motivo')."
             )
-        return super().delete(*args, **kwargs)
+        with transaction.atomic(using=kwargs.get("using") or self._state.db or "default"):
+            return super().delete(*args, **kwargs)  # o histórico vem pelo sinal post_delete, na mesma transação

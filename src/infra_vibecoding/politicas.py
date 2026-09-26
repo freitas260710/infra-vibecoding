@@ -1,6 +1,6 @@
 """Políticas das tabelas do próprio 00: fechadas. Só as funções do 00 leem e gravam."""
 from .dados import Politica, politica
-from .models import ArquivoGuardado, LinkDeCompartilhamento
+from .models import ArquivoGuardado, Historico, LinkDeCompartilhamento
 
 
 @politica(ArquivoGuardado)
@@ -11,4 +11,9 @@ class PoliticaArquivoGuardado(Politica):
 @politica(LinkDeCompartilhamento)
 class PoliticaLinkDeCompartilhamento(Politica):
     """Ninguém lista links direto. Quem cria e cancela é quem a política do registro libera ("compartilhar")."""
+
+
+@politica(Historico)
+class PoliticaHistorico(Politica):
+    """Ninguém lista o histórico direto: cada um vê o histórico dos registros que vê (historico_de)."""
 

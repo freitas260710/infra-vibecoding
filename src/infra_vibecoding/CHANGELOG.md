@@ -1,5 +1,31 @@
 # Histórico de versões
 
+## 0.4.0
+
+Histórico automático e código do pedido (US 6.1, etapa 6, decisões D36 e D60).
+
+- Histórico automático de toda tabela do sistema: cada criação, alteração e exclusão vira uma linha com quando, quem
+  gravou (a pessoa, ou "sistema" com o motivo), a pessoa logada no clique, a tabela, o registro e o antes/depois de
+  cada campo, com o nome do campo. Funciona por qualquer caminho: telas, tela de banco, planilha, `create`,
+  `update_or_create`, alterações e exclusões em massa "como sistema" (uma linha por registro afetado) e exclusões em
+  cascata. Ninguém precisa lembrar de chamar.
+- Tudo ou nada: a gravação e a linha do histórico entram juntas. Se o histórico falhar, a gravação não acontece.
+- Senha, chave de sessão, chave do app e códigos de recuperação aparecem só como "alterada". Arquivos aparecem pelo
+  nome, relações pelo nome do registro, datas em dd/mm/aaaa. A data do último login não entra.
+- Ninguém altera nem apaga o histórico (nem em massa, nem pela tela de banco). Guardado para sempre.
+- `registrar_acao(usuario, registro, "aprovou o chamado", detalhes)`: ações de negócio com nome amigável na mesma
+  linha do tempo. Criar e cancelar link de compartilhamento já entram assim.
+- Quem vê o registro vê o histórico dele: tela pronta `/historico/<app>/<tabela>/<id>/` (filtro
+  `{{ registro|historico_url }}`) ou `historico_de(registro, usuario)`. Para quem não vê o registro: "não encontrado".
+- Tela de banco: lista do histórico só para superusuário, só leitura, com filtros e busca. A tela única de Registros
+  (histórico, acessos e erros juntos) vem na US 6.2.
+- Código do pedido: cada clique ganha um código de 8 letras (cabeçalho `X-Codigo-Pedido`), gravado no histórico. O
+  código do erro interno agora é o mesmo código do clique (`E-` + 8 letras), para achar tudo o que aconteceu nele.
+  O código do pedido é o primeiro item do MIDDLEWARE (SEC.E131).
+- Ao atualizar para esta versão: rodar `migrate` (tabela nova de histórico). Sistema que redefine MIDDLEWARE precisa
+  incluir `infra_vibecoding.pedido.CodigoDoPedido` em primeiro lugar (o ideal é não redefinir).
+- 466 testes automáticos.
+
 ## 0.3.1
 
 Campo de arquivo público e link de compartilhamento (US 4.2, decisão D58).

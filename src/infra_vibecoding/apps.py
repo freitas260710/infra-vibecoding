@@ -19,6 +19,9 @@ class InfraVibecodingConfig(AppConfig):
 
         ligar_paginas_de_erro()
 
+        # Histórico automático (US 6.1): liga o registro das exclusões desde o início, antes de qualquer gravação.
+        from . import historico  # noqa: F401
+
         # Carrega o politicas.py de cada app do sistema.
         autodiscover_modules("politicas")
 

@@ -497,11 +497,58 @@ class AdminLinkDeCompartilhamento(AdminSeguro):
         self.message_user(request, f"{quantos} link(s) cancelado(s).", messages.SUCCESS)
 
 
+# Histórico (US 6.1): a tela de banco só lê. Ninguém cria, edita ou apaga. A tela única de Registros vem na US 6.2.
+
+class AdminHistorico(AdminSeguro):
+    permite_planilha = False
+    list_display = ("quando", "quem", "o_que", "tabela", "registro", "rotulo", "pedido")
+    list_filter = ("acao", "tabela", "como_sistema", "quando")
+    search_fields = ("pessoa", "autor", "registro", "rotulo", "pedido", "motivo")
+    readonly_fields = ("quando", "pedido", "pessoa", "autor", "como_sistema", "motivo", "tabela", "registro",
+                       "rotulo", "o_que", "detalhes")
+    fields = readonly_fields
+    actions = None
+
+    @admin.display(description="quem")
+    def quem(self, obj):
+        return f"sistema ({obj.motivo})" if obj.como_sistema and obj.motivo else obj.autor
+
+    @admin.display(description="o que")
+    def o_que(self, obj):
+        return obj.nome_da_acao if obj.acao == "acao" else obj.get_acao_display()
+
+    @admin.display(description="detalhes")
+    def detalhes(self, obj):
+        from django.utils.html import format_html_join
+
+        def texto(m):
+            if obj.acao == "alterou":
+                return f"{m.get('antes') or '(vazio)'} → {m.get('depois') or '(vazio)'}"
+            return str((m.get("antes") if obj.acao == "excluiu" else m.get("depois")) or "(vazio)")
+
+        return format_html_join("", "<div><strong>{}</strong>: {}</div>",
+                                ((m.get("nome", c), texto(m)) for c, m in (obj.mudancas or {}).items()))
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    def has_view_permission(self, request, obj=None):
+        return request.user.is_active and request.user.is_staff and request.user.is_superuser
+
+
 def _registrar_tabelas_do_00():
-    from .models import LinkDeCompartilhamento
+    from .models import Historico, LinkDeCompartilhamento
 
     if not admin.site.is_registered(LinkDeCompartilhamento):
         admin.site.register(LinkDeCompartilhamento, AdminLinkDeCompartilhamento)
+    if not admin.site.is_registered(Historico):
+        admin.site.register(Historico, AdminHistorico)
 
 
 _registrar_tabelas_do_00()

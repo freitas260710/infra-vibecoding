@@ -77,3 +77,12 @@ def pedido_de_outro(request, pk):
 
     pedido = get_object_or_404(Pedido.objects.para(request.user), pk=pk)
     return HttpResponse(pedido.titulo)
+
+
+# US 6.1: grava dentro de um clique (o histórico leva o código do pedido e a pessoa logada).
+@logado
+def renomear_pedido(request, pk):
+    pedido = Pedido.objects.para(request.user).get(pk=pk)
+    pedido.titulo = request.GET.get("titulo", "novo")
+    pedido.salvar(request.user)
+    return HttpResponse("ok")

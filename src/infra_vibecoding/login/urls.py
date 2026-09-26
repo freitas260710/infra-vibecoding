@@ -3,6 +3,7 @@ from django.urls import path
 
 from ..arquivos import baixar, baixar_compartilhado, baixar_publico, tela_compartilhar
 from ..erros import ver_pagina_de_erro
+from ..historico import tela_historico
 from . import views
 
 urlpatterns = [
@@ -29,6 +30,8 @@ urlpatterns = [
     path("arquivos/publico/<uuid:id>/", baixar_publico, name="arquivo_publico"),
     path("arquivos/<uuid:id>/compartilhar/", tela_compartilhar, name="compartilhar_arquivo"),
     path("c/<str:codigo>/", baixar_compartilhado, name="baixar_compartilhado"),
+    # Histórico de um registro: só quem vê o registro (US 6.1)
+    path("historico/<str:app>/<str:modelo>/<str:pk>/", tela_historico, name="historico_do_registro"),
     # Ver as páginas de erro como o usuário vê (só no computador do desenvolvedor, US 3.5)
     path("erros/ver/<str:tipo>/", ver_pagina_de_erro, name="ver_pagina_de_erro"),
     # Cadastro público (desligado por padrão: responde 404 enquanto o sistema não ligar)

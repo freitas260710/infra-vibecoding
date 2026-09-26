@@ -97,6 +97,20 @@ quebradas. Mesmo assim, siga todas: acertar de primeira é mais rápido do que e
 - HTMX: carregar no base.html, depois do htmx, `<script src="{% static 'infra_vibecoding/erros.js' %}" defer>`.
   Ele mostra no topo da tela a frase curta que o 00 responde quando um pedido dá erro.
 
+## Histórico (quem mudou o quê)
+- O 00 grava sozinho o histórico de toda tabela do sistema: criou, alterou (antes e depois de cada campo) e excluiu,
+  por qualquer caminho (telas, tela de banco, planilha, em massa, cascata). Nunca criar tabela de histórico, log de
+  alterações ou "auditoria" própria, nem campos como `alterado_por`/`alterado_em` só para isso.
+- Ações de negócio com nome amigável: `registrar_acao(usuario, registro, "aprovou o chamado", {"prazo": "3 dias"})`
+  de `infra_vibecoding.historico`. Usar só para ações que não são uma simples alteração de campo.
+- Mostrar o histórico: tela pronta `{% load historico %}<a href="{{ registro|historico_url }}">Histórico</a>`
+  (só abre para quem vê o registro) ou `historico_de(registro, request.user)` numa tela própria. Nunca ler a tabela
+  `Historico` direto.
+- Senha, chaves e 2FA aparecem só como "alterada". Não guardar dado sensível em campo de texto livre achando que
+  fica fora do histórico: tudo o que está numa tabela entra.
+- Cada clique tem um código (cabeçalho `X-Codigo-Pedido`), que vai no histórico e no código do erro (E-...). Não
+  redefinir MIDDLEWARE (SEC.E131).
+
 ## Limite de pedidos (força bruta)
 - O 00 limita TODO pedido (120 por minuto por visitante, 240 por usuário logado) e bloqueia o login por 15 minutos
   depois de 5 senhas erradas (SEC.E066). Não redefinir MIDDLEWARE.

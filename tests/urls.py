@@ -17,4 +17,5 @@ urlpatterns = [
     path("quebrada/", views.quebrada),
     path("pedido-ruim/", views.pedido_ruim),
     path("pedidos/<int:pk>/", views.pedido_de_outro),
+    path("pedidos/<int:pk>/renomear/", views.renomear_pedido),
 ]

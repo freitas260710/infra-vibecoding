@@ -23,7 +23,6 @@ e precisa mostrar {{ codigo }} (SEC.E113). O sistema não troca QUANDO cada pág
 handler500 etc. no urls.py (SEC.E111) nem CSRF_FAILURE_VIEW próprio (SEC.E112).
 """
 import logging
-import secrets
 
 from django.conf import settings
 from django.http import Http404, HttpResponse
@@ -32,7 +31,6 @@ from django.template import loader
 log = logging.getLogger("infra_vibecoding.erros")
 auditoria = logging.getLogger("infra_vibecoding.auditoria")
 
-_LETRAS = "23456789ABCDEFGHJKMNPQRSTUVWXYZ"
 
 FRASES = {
     400: "Pedido inválido. Recarregue a página e tente de novo.",
@@ -44,7 +42,11 @@ FRASES = {
 
 
 def novo_codigo():
-    return "E-" + "".join(secrets.choice(_LETRAS) for _ in range(5))
+    """Código do erro: o mesmo código do pedido (US 6.1), com "E-" na frente. Fora de um pedido, um código novo."""
+    from .pedido import codigo_atual
+    from .pedido import novo_codigo as codigo_novo
+
+    return "E-" + (codigo_atual() or codigo_novo())
 
 
 def _eh_htmx(request):

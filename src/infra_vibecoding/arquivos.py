@@ -638,6 +638,10 @@ def compartilhar(usuario, registro, campo, dias=PRAZO_PADRAO_DIAS, request=None)
     link = LinkDeCompartilhamento(arquivo=guardado, resumo=_resumo_do_codigo(codigo), criado_por=usuario.email,
                                   vence_em=timezone.now() + timezone.timedelta(days=dias))
     link.salvar_como_sistema(f"arquivos: {usuario.email} compartilhou {guardado.nome} por {dias} dia(s)")
+    from .historico import registrar_acao
+
+    registrar_acao(usuario, registro, "criou link de compartilhamento",
+                   {"arquivo": guardado.nome, "prazo": f"{dias} dia(s)", "vence em": link.vence_em})
     caminho = reverse("baixar_compartilhado", args=[codigo])
     log.info("arquivos: %s criou link de %s para %s, vence em %s", usuario.email, dias, guardado.nome,
              link.vence_em)
@@ -649,12 +653,17 @@ def cancelar_compartilhamento(usuario, link):
 
     from .dados import SemPermissao
 
-    if _registro_para_compartilhar(usuario, link.arquivo) is None:
+    registro = _registro_para_compartilhar(usuario, link.arquivo)
+    if registro is None:
         raise SemPermissao("Sem permissão para cancelar este link.")
     if link.cancelado_em is None:
         link.cancelado_em, link.cancelado_por = timezone.now(), usuario.email
         link.salvar_como_sistema(f"arquivos: {usuario.email} cancelou um link de {link.arquivo.nome}",
                                  update_fields=["cancelado_em", "cancelado_por"])
+        from .historico import registrar_acao
+
+        registrar_acao(usuario, registro, "cancelou link de compartilhamento",
+                       {"arquivo": link.arquivo.nome, "criado por": link.criado_por})
     return link
 
 

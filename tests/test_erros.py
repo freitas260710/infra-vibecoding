@@ -51,8 +51,9 @@ def test_erro_interno_mostra_so_o_codigo_e_registra_o_erro_completo(cliente, cap
     r = cliente.get("/quebrada/")
     tela = r.content.decode()
     assert r.status_code == 500 and "Algo deu errado" in tela
-    codigo = re.search(r"E-[2-9A-Z]{5}", tela).group(0)
+    codigo = re.search(r"E-[2-9A-Z]{8}", tela).group(0)
     assert r["X-Codigo-Erro"] == codigo
+    assert codigo == "E-" + r["X-Codigo-Pedido"]  # o erro leva o código do clique (US 6.1)
     assert "senha=abc123" not in tela and "RuntimeError" not in tela and "Traceback" not in tela
     registro = [x for x in caplog.records if x.name == "infra_vibecoding.erros"][0]
     assert codigo in registro.getMessage() and "/quebrada/" in registro.getMessage()

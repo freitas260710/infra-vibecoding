@@ -1,0 +1,29 @@
+{% extends "infra_vibecoding/login/base.html" %}
+{% comment %}Histórico de um registro (US 6.1). O sistema troca o visual criando
+templates/infra_vibecoding/historico/registro.html. Cada linha tem: quando, quem, a ação e o antes/depois de cada
+campo (linha.mudancas: {campo: {nome, antes, depois}}).{% endcomment %}
+{% block titulo %}Histórico{% endblock %}
+{% block conteudo %}
+  <h1>Histórico de {{ tabela }}: {{ registro }}</h1>
+  {% if linhas %}
+    <table class="historico">
+      <thead><tr><th>Quando</th><th>Quem</th><th>O que</th><th>Detalhes</th></tr></thead>
+      <tbody>{% for linha in linhas %}
+        <tr>
+          <td>{{ linha.quando|date:"d/m/Y H:i:s" }}{% if linha.pedido %}<br><small>pedido {{ linha.pedido }}</small>{% endif %}</td>
+          <td>{% if linha.como_sistema %}sistema{% if linha.motivo %} ({{ linha.motivo }}){% endif %}{% else %}{{ linha.autor }}{% endif %}
+              {% if linha.pessoa and linha.pessoa != linha.autor %}<br><small>no clique de {{ linha.pessoa }}</small>{% endif %}</td>
+          <td>{% if linha.acao == "acao" %}{{ linha.nome_da_acao }}{% else %}{{ linha.get_acao_display }}{% endif %}</td>
+          <td>{% if linha.mudancas %}<ul>{% for campo, m in linha.mudancas.items %}
+                <li><strong>{{ m.nome }}</strong>:
+                  {% if linha.acao == "alterou" %}{{ m.antes|default:"(vazio)" }} → {{ m.depois|default:"(vazio)" }}
+                  {% elif linha.acao == "excluiu" %}{{ m.antes|default:"(vazio)" }}
+                  {% else %}{{ m.depois|default:"(vazio)" }}{% endif %}</li>
+              {% endfor %}</ul>{% endif %}</td>
+        </tr>
+      {% endfor %}</tbody>
+    </table>
+  {% else %}
+    <p>Nenhuma alteração registrada.</p>
+  {% endif %}
+{% endblock %}

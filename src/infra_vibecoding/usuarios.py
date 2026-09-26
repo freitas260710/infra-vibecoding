@@ -44,7 +44,7 @@ from django.db import models
 from django.utils import timezone
 from django.utils.crypto import salted_hmac
 
-from .dados import GerenciadorSeguro, ModeloSeguro, _autorizar
+from .dados import _AUTOR, GerenciadorSeguro, ModeloSeguro, _autorizar
 
 log = logging.getLogger("infra_vibecoding.auditoria")
 
@@ -154,8 +154,12 @@ class UsuarioSeguro(ModeloSeguro, AbstractBaseUser, PermissionsMixin):
 
     def check_password(self, raw_password):
         # Se o método de guardar a senha mudou, o Django regrava a senha aqui. Só isso é liberado.
-        with _autorizar(self):
-            return super().check_password(raw_password)
+        token = _AUTOR.set(("sistema", "atualização do método de guardar a senha, no login"))
+        try:
+            with _autorizar(self):
+                return super().check_password(raw_password)
+        finally:
+            _AUTOR.reset(token)
 
     def save(self, *args, **kwargs):
         self.email = normalizar_email(self.email)

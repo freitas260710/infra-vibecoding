@@ -608,3 +608,19 @@ def sec12_arquivos(app_configs=None, **kwargs):
             ))
     return erros
 
+
+# Histórico e código do pedido (US 6.1)
+
+_MW_PEDIDO = "infra_vibecoding.pedido.CodigoDoPedido"
+
+
+@register(Tags.security)
+def sec13_codigo_do_pedido(app_configs=None, **kwargs):
+    mw = list(getattr(settings, "MIDDLEWARE", []))
+    if not mw or mw[0] != _MW_PEDIDO:
+        return [Error(
+            "Código do pedido desligado ou fora de ordem: histórico, acessos e erros perderiam a ligação entre si.",
+            hint=f"Não redefina MIDDLEWARE: '{_MW_PEDIDO}' vem do 00 em primeiro lugar.",
+            id="SEC.E131",
+        )]
+    return []

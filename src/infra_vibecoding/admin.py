@@ -81,11 +81,105 @@ def _tela_como_sistema(view):
 
 
 class AdminSeguro(_CamposRelacionadosSeguros, admin.ModelAdmin):
+    change_list_template = "infra_vibecoding/admin/change_list.html"
+
     def get_urls(self):
-        urls = super().get_urls()
+        from django.urls import path
+
+        info = self.opts.app_label, self.opts.model_name
+        urls = [
+            path("importar/", self.admin_site.admin_view(self.importar_planilha), name="%s_%s_importar" % info),
+            path("exportar/<str:formato>/", self.admin_site.admin_view(self.exportar_planilha),
+                 name="%s_%s_exportar" % info),
+            *super().get_urls(),
+        ]
         for padrao in urls:
             padrao.callback = _tela_como_sistema(padrao.callback)
         return urls
+
+    # Planilhas (US I.1): exportar a lista e importar com prévia, tudo ou nada.
+
+    def exportar_planilha(self, request, formato):
+        from django.http import Http404
+
+        from . import planilhas
+
+        if formato not in ("csv", "xlsx") or not self.has_view_or_change_permission(request):
+            raise Http404
+        lista = self.get_changelist_instance(request)
+        queryset = lista.get_queryset(request)
+        resposta, total = planilhas.exportar(self.model, queryset, formato, self.opts.model_name)
+        log.info("%s", _motivo(request, f"exportou {total} linha(s) de {self.opts.label} ({formato})"))
+        return resposta
+
+    def importar_planilha(self, request):
+        from django.shortcuts import render
+        from django.urls import reverse
+
+        from . import planilhas
+
+        pode_criar = self.has_add_permission(request)
+        pode_atualizar = self.has_change_permission(request)
+        if not (pode_criar or pode_atualizar):
+            raise PermissionDenied
+        contexto = {
+            **self.admin_site.each_context(request),
+            "opts": self.opts, "title": f"Importar planilha: {self.opts.verbose_name_plural}",
+            "max_linhas": planilhas.MAX_LINHAS, "max_mb": planilhas.MAX_BYTES // (1024 * 1024),
+            "campos": [c.name for c in planilhas.campos_da_exportacao(self.model)
+                       if c.name in planilhas._campos_importaveis(self.model)],
+        }
+        lista = reverse(f"admin:{self.opts.app_label}_{self.opts.model_name}_changelist")
+        template = "infra_vibecoding/admin/importar.html"
+        if request.method != "POST":
+            return render(request, template, contexto)
+
+        token = request.POST.get("token", "")
+        if "cancelar" in request.POST:
+            planilhas.descartar(token)
+            return redirect(lista)
+        if "confirmar" in request.POST:
+            guardado = planilhas.recuperar(token, self.model, request.user)
+            if guardado is None:
+                messages.error(request, "A prévia venceu ou não é sua. Envie o arquivo de novo.")
+                return redirect(request.path)
+            dados, nome = guardado["dados"], guardado["nome"]
+        else:
+            arquivo = request.FILES.get("arquivo")
+            if arquivo is None:
+                contexto["erro_do_arquivo"] = "Escolha um arquivo."
+                return render(request, template, contexto)
+            if arquivo.size > planilhas.MAX_BYTES:
+                contexto["erro_do_arquivo"] = f"Arquivo maior que {contexto['max_mb']} MB. Divida em arquivos menores."
+                return render(request, template, contexto)
+            dados, nome = arquivo.read(), arquivo.name
+
+        try:
+            cabecalho, linhas = planilhas.ler_arquivo(dados)
+            resultado = planilhas.conferir(self.model, cabecalho, linhas, pode_criar, pode_atualizar)
+        except planilhas.ErroPlanilha as erro:
+            planilhas.descartar(token)
+            contexto["erro_do_arquivo"] = str(erro)
+            return render(request, template, contexto)
+
+        if "confirmar" in request.POST and resultado.ok:
+            motivo = _motivo(request, f"importou a planilha '{nome}' em {self.opts.label}")
+            try:
+                planilhas.gravar(resultado, motivo)
+            except Exception as erro:  # ex.: o banco recusou uma linha; nada ficou gravado
+                log.error("%s: falhou, nada gravado (%s)", motivo, erro)
+                contexto["erro_do_arquivo"] = f"O banco recusou a gravação e nada foi gravado: {erro}"
+                return render(request, template, contexto)
+            planilhas.descartar(token)
+            log.info("%s: %s novo(s), %s atualizado(s)", motivo, resultado.novos, resultado.atualizados)
+            messages.success(request, f"Planilha '{nome}' importada: {resultado.novos} novo(s) e "
+                                      f"{resultado.atualizados} atualizado(s).")
+            return redirect(lista)
+
+        if "confirmar" not in request.POST and resultado.ok:
+            token = planilhas.guardar_para_confirmar(dados, nome, self.model, request.user)
+        contexto.update(resultado=resultado, token=token, nome_do_arquivo=nome, total_de_linhas=len(linhas))
+        return render(request, template, contexto)
 
     def get_queryset(self, request):
         qs = self.model.objects.como_sistema(_motivo(request, "consultou"))
@@ -206,19 +300,64 @@ def entrar_pela_tela_do_00(request, extra_context=None):
     return redirect(f"{resolve_url(settings.LOGIN_URL)}?{urlencode({'next': destino})}")
 
 
+class FiltroAcesso(admin.SimpleListFilter):
+    """Situação do acesso: link não enviado, aguardando, link vencido, senha definida (US I.1)."""
+
+    title = "acesso"
+    parameter_name = "acesso"
+
+    def lookups(self, request, model_admin):
+        return (("nao_enviado", "Link não enviado"), ("aguardando", "Aguardando primeiro acesso"),
+                ("vencido", "Link vencido"), ("definida", "Senha definida"))
+
+    def queryset(self, request, queryset):
+        from django.utils import timezone
+
+        from .login.links import LINK_CONVITE
+
+        limite = timezone.now() - timezone.timedelta(seconds=LINK_CONVITE.validade)
+        sem_senha = queryset.filter(password__startswith=UNUSABLE_PASSWORD_PREFIX)
+        return {
+            "nao_enviado": lambda: sem_senha.filter(link_enviado_em__isnull=True),
+            "aguardando": lambda: sem_senha.filter(link_enviado_em__gte=limite),
+            "vencido": lambda: sem_senha.filter(link_enviado_em__lt=limite),
+            "definida": lambda: queryset.exclude(password__startswith=UNUSABLE_PASSWORD_PREFIX),
+        }.get(self.value(), lambda: queryset)()
+
+
+def situacao_do_acesso(usuario):
+    """Texto da coluna Acesso."""
+    from django.utils import timezone
+
+    from .login.links import LINK_CONVITE
+
+    if not usuario.is_active:
+        return "Desativado"
+    if usuario.has_usable_password():
+        return "Senha definida"
+    if usuario.link_enviado_em is None:
+        return "Link não enviado"
+    vence = usuario.link_enviado_em + timezone.timedelta(seconds=LINK_CONVITE.validade)
+    if vence < timezone.now():
+        return "Link vencido, reenviar"
+    envio, fim = timezone.localtime(usuario.link_enviado_em), timezone.localtime(vence)
+    return f"Aguardando: link enviado em {envio:%d/%m %H:%M}, vence em {fim:%d/%m %H:%M}"
+
+
 class AdminUsuarioSeguro(AdminSeguro, UserAdmin):
     """Tela de banco da tabela de usuário (login por e-mail), passando pelo 00 como as outras."""
 
     ordering = ("email",)
-    list_display = ("email", "nome", "is_staff", "is_active")
-    list_filter = ("is_staff", "is_superuser", "is_active")
+    list_display = ("email", "nome", "acesso", "is_staff", "is_active")
+    list_filter = (FiltroAcesso, "is_staff", "is_superuser", "is_active")
     search_fields = ("email", "nome")
     readonly_fields = ("last_login", "date_joined", "email_confirmado_em", "termos_aceitos_em", "dois_fatores",
-                       "dois_fatores_desde")
+                       "dois_fatores_desde", "link_enviado_em", "acesso")
     fieldsets = (
         (None, {"fields": ("email", "password")}),
         ("Dados", {"fields": ("nome",)}),
         ("Permissões", {"fields": ("is_active", "is_staff", "is_superuser", "groups", "user_permissions")}),
+        ("Acesso", {"fields": ("acesso", "link_enviado_em")}),
         ("Datas", {"fields": ("last_login", "date_joined", "email_confirmado_em", "termos_aceitos_em")}),
         ("Verificação em duas etapas", {"fields": ("dois_fatores", "dois_fatores_desde")}),
     )
@@ -238,6 +377,23 @@ class AdminUsuarioSeguro(AdminSeguro, UserAdmin):
 
             enviar_link_de_senha(request, obj)
             self.message_user(request, f"Link de primeiro acesso enviado para {obj.email}.", messages.SUCCESS)
+
+    @admin.display(description="Acesso")
+    def acesso(self, obj):
+        return situacao_do_acesso(obj)
+
+    def get_list_display(self, request):
+        # A coluna Acesso aparece mesmo quando o sistema define a própria lista de colunas.
+        colunas = list(super().get_list_display(request))
+        if "acesso" not in colunas:
+            colunas.insert(min(2, len(colunas)), "acesso")
+        return colunas
+
+    def get_list_filter(self, request):
+        filtros = list(super().get_list_filter(request))
+        if FiltroAcesso not in filtros:
+            filtros.insert(0, FiltroAcesso)
+        return filtros
 
     def user_change_password(self, request, id, form_url=""):
         """Definir a senha de outra pessoa pela tela de banco: bloqueado (D43)."""

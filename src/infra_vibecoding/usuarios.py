@@ -30,6 +30,8 @@ O que muda em relação ao usuário padrão do Django:
 - Verificação em duas etapas (US 3.4): dois_fatores ("", "app" ou "email"), dois_fatores_desde, a chave do app
   cifrada, o último código do app usado e os códigos de recuperação guardados como senha. Só o 00 grava esses
   campos (infra_vibecoding.login.dois_fatores); nenhum deles aparece em formulário.
+- link_enviado_em (US I.1): quando foi enviado o último link de acesso (primeiro acesso ou redefinição). Mostra na
+  tela de banco se a pessoa está aguardando, se o link venceu ou se já definiu a senha.
 - Gravações liberadas sem dizer quem: só a data do último login (feita pelo próprio login) e a troca do método
   de guardar a senha durante a conferência da senha. Todo o resto usa salvar(usuario) ou salvar_como_sistema.
 """
@@ -114,6 +116,8 @@ class UsuarioSeguro(ModeloSeguro, AbstractBaseUser, PermissionsMixin):
     segredo_do_app = models.TextField("chave do app (cifrada)", blank=True, default="", editable=False)
     ultimo_codigo_do_app = models.BigIntegerField("último código do app usado", default=0, editable=False)
     codigos_de_recuperacao = models.JSONField("códigos de recuperação", default=list, blank=True, editable=False)
+    link_enviado_em = models.DateTimeField("último link de acesso enviado em", null=True, blank=True,
+                                           editable=False)
 
     objects = GerenciadorUsuarios()
 

@@ -91,6 +91,12 @@ quebradas. Mesmo assim, siga todas: acertar de primeira é mais rápido do que e
 ## Tela de banco (admin)
 - Registrar tabelas com `admin.site.register(Tabela, AdminSeguro)` (`infra_vibecoding.admin`) (SEC.E071).
 - O admin fica no endereço próprio definido em `config/urls.py`. Nunca `admin/` (SEC.E072).
+- Importar e exportar planilha (CSV e Excel) já vem em toda tabela do AdminSeguro, com prévia e tudo ou nada. Nunca
+  criar importação própria nem gravar dados de planilha por outro caminho. Relação na planilha: o id do registro
+  ligado ou um campo único dele (`empresa__cnpj`). Para trazer dados de outro sistema, a tabela precisa de um campo
+  único que identifique a origem (ex.: `id_origem`), se não houver outro. Senha, chaves, 2FA, `is_staff` e
+  `is_superuser` nunca entram por planilha. Usuário importado nasce sem senha; o link sai pela ação "Enviar link de
+  acesso". A coluna e o filtro "Acesso" da lista de usuários mostram quem está aguardando ou com link vencido.
 
 ## Configurações
 - A primeira linha do `config/settings.py` importa as configurações do 00. Não remover (SEC.E010).

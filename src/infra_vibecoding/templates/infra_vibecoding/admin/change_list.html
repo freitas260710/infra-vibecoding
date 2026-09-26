@@ -1,0 +1,8 @@
+{% extends "admin/change_list.html" %}
+{% comment %}Lista da tela de banco com os botões de planilha do 00 (US I.1).{% endcomment %}
+{% block object-tools-items %}
+  {{ block.super }}
+  {% if has_add_permission %}<li><a href="importar/">Importar planilha</a></li>{% endif %}
+  <li><a href="exportar/csv/{{ cl.get_query_string }}">Exportar CSV</a></li>
+  <li><a href="exportar/xlsx/{{ cl.get_query_string }}">Exportar Excel</a></li>
+{% endblock %}

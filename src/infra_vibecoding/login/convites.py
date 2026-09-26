@@ -74,6 +74,9 @@ def enviar_link_de_senha(request, usuario):
         return False
     tipo, gerador, link = link_de_senha(request, usuario)
     _enviar(request, usuario, tipo, {"link": link, "horas": gerador.validade // 3600})
+    usuario.link_enviado_em = timezone.now()
+    usuario.salvar_como_sistema(f"login: link de acesso enviado para {usuario.email}",
+                                update_fields=["link_enviado_em"])
     log.info("login: link de %s enviado para %s", "primeiro acesso" if tipo == "convite" else "redefinição",
              usuario.email)
     return True

@@ -1,0 +1,100 @@
+{% extends "admin/base_site.html" %}
+{% load admin_urls %}
+{% comment %}Importar planilha na tela de banco (US I.1): envio, prévia com erros por linha e confirmação.{% endcomment %}
+{% block extrastyle %}{{ block.super }}
+<style>
+  .iv-erros td, .iv-amostra td { vertical-align: top; }
+  .iv-resumo { font-size: 1.1em; margin: 1em 0; }
+  .iv-ruim { color: var(--error-fg, #ba2121); }
+  #iv-carregando { display: none; position: fixed; inset: 0; background: rgba(255,255,255,.92); z-index: 1000;
+                   align-items: center; justify-content: center; }
+  #iv-carregando.ativo { display: flex; }
+  .iv-caixa { width: min(520px, 90vw); padding: 24px; border-radius: 10px; background: var(--body-bg, #fff);
+              box-shadow: 0 4px 24px rgba(0,0,0,.15); color: var(--body-fg, #333); }
+  .iv-caixa h2 { margin-top: 0; }
+  .iv-esqueleto { height: 14px; margin: 10px 0; border-radius: 6px;
+                  background: linear-gradient(90deg, #e8e8e8 25%, #f6f6f6 50%, #e8e8e8 75%);
+                  background-size: 200% 100%; animation: iv-brilho 1.2s infinite linear; }
+  @keyframes iv-brilho { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+</style>
+{% endblock %}
+{% block breadcrumbs %}<div class="breadcrumbs">
+  <a href="{% url 'admin:index' %}">Início</a> &rsaquo;
+  <a href="{% url 'admin:app_list' app_label=opts.app_label %}">{{ opts.app_config.verbose_name }}</a> &rsaquo;
+  <a href="{% url opts|admin_urlname:'changelist' %}">{{ opts.verbose_name_plural|capfirst }}</a> &rsaquo; Importar planilha
+</div>{% endblock %}
+{% block content %}
+<div id="content-main">
+  {% if erro_do_arquivo %}<p class="errornote">{{ erro_do_arquivo }}</p>{% endif %}
+
+  {% if resultado %}
+    <h2>Prévia de "{{ nome_do_arquivo }}"</h2>
+    <p class="iv-resumo">{{ total_de_linhas }} linha(s) na planilha: <strong>{{ resultado.novos }}</strong> nova(s),
+      <strong>{{ resultado.atualizados }}</strong> atualizada(s){% if not resultado.ok %},
+      <strong class="iv-ruim">{{ resultado.total_de_erros }} erro(s)</strong>{% endif %}.</p>
+    {% if resultado.ignoradas %}
+      <p>Colunas ignoradas:
+        {% for titulo, motivo in resultado.ignoradas %}"{{ titulo }}" ({{ motivo }}){% if not forloop.last %}, {% endif %}{% endfor %}.</p>
+    {% endif %}
+    {% if not resultado.ok %}
+      <p class="iv-ruim"><strong>Nada foi gravado.</strong> Corrija a planilha e envie de novo (tudo ou nada).</p>
+      <table class="iv-erros">
+        <thead><tr><th>Linha</th><th>Coluna</th><th>Problema</th></tr></thead>
+        <tbody>{% for linha, coluna, mensagem in resultado.erros %}
+          <tr><td>{{ linha }}</td><td>{{ coluna }}</td><td>{{ mensagem }}</td></tr>{% endfor %}</tbody>
+      </table>
+      {% if resultado.total_de_erros > resultado.erros|length %}<p>Mostrando os primeiros {{ resultado.erros|length }} erros.</p>{% endif %}
+    {% else %}
+      {% if resultado.amostra %}
+        <h3>Primeiras linhas</h3>
+        <table class="iv-amostra">
+          <thead><tr><th>Linha</th><th>Ação</th>{% for t in resultado.titulos_da_amostra %}<th>{{ t }}</th>{% endfor %}</tr></thead>
+          <tbody>{% for linha in resultado.amostra %}<tr>{% for v in linha %}<td>{{ v }}</td>{% endfor %}</tr>{% endfor %}</tbody>
+        </table>
+      {% endif %}
+      <form method="post" class="iv-carrega" data-mensagem="Gravando {{ resultado.novos|add:resultado.atualizados }} linha(s)...">
+        {% csrf_token %}
+        <input type="hidden" name="token" value="{{ token }}">
+        <p><button type="submit" name="confirmar" value="1" class="default">Confirmar e gravar</button>
+           <button type="submit" name="cancelar" value="1" formnovalidate>Cancelar</button></p>
+      </form>
+    {% endif %}
+    <hr>
+  {% endif %}
+
+  <h2>Enviar planilha</h2>
+  <p>CSV ou Excel (.xlsx), até {{ max_linhas }} linhas e {{ max_mb }} MB. A primeira linha é o cabeçalho com os nomes
+     dos campos. Linha com "id" atualiza o registro; sem "id", cria. Relação: o id do registro ligado ou um campo
+     único dele (ex.: <code>empresa__cnpj</code>). Nada é gravado antes da prévia, e com qualquer erro nada é gravado.</p>
+  <p>Campos desta tabela: {% for c in campos %}<code>{{ c }}</code>{% if not forloop.last %}, {% endif %}{% endfor %}.
+     Dica: use "Exportar" para baixar um modelo com os nomes certos.</p>
+  <form method="post" enctype="multipart/form-data" class="iv-carrega" data-mensagem="Conferindo as linhas...">
+    {% csrf_token %}
+    <p><input type="file" name="arquivo" accept=".csv,.xlsx" required></p>
+    <p><button type="submit" class="default">Ver prévia</button></p>
+  </form>
+</div>
+
+<div id="iv-carregando" role="status" aria-live="polite"><div class="iv-caixa">
+  <h2 id="iv-titulo">Conferindo as linhas...</h2>
+  <p id="iv-arquivo"></p>
+  <div class="iv-esqueleto" style="width:90%"></div><div class="iv-esqueleto" style="width:75%"></div>
+  <div class="iv-esqueleto" style="width:82%"></div><div class="iv-esqueleto" style="width:60%"></div>
+  <p><small>Arquivos grandes podem levar alguns minutos. Não feche esta página.</small></p>
+</div></div>
+<script>
+  document.querySelectorAll("form.iv-carrega").forEach(function (form) {
+    form.addEventListener("submit", function (e) {
+      if (e.submitter && e.submitter.name === "cancelar") return;
+      document.getElementById("iv-titulo").textContent = form.dataset.mensagem;
+      var arquivo = form.querySelector("input[type=file]");
+      if (arquivo && arquivo.files.length) {
+        var f = arquivo.files[0], mb = f.size / (1024 * 1024);
+        document.getElementById("iv-arquivo").textContent =
+          f.name + " (" + (mb >= 1 ? mb.toFixed(1) + " MB" : Math.max(1, Math.round(f.size / 1024)) + " KB") + ")";
+      }
+      document.getElementById("iv-carregando").classList.add("ativo");
+    });
+  });
+</script>
+{% endblock %}

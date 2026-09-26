@@ -657,6 +657,15 @@ class Migration(migrations.Migration):
                     ),
                 ),
                 (
+                    "link_enviado_em",
+                    models.DateTimeField(
+                        blank=True,
+                        editable=False,
+                        null=True,
+                        verbose_name="último link de acesso enviado em",
+                    ),
+                ),
+                (
                     "groups",
                     models.ManyToManyField(
                         blank=True,

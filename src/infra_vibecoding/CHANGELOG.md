@@ -1,5 +1,19 @@
 # Histórico de versões
 
+## 0.2.8
+
+Importar e exportar planilha na tela de banco, e a situação do acesso dos usuários (US I.1, decisão D53).
+
+- Toda tabela da tela de banco ganha sozinha "Importar planilha", "Exportar CSV" e "Exportar Excel". O sistema não escreve nada.
+- Exportar: sai o que está na lista, com a busca e os filtros aplicados. CSV no padrão do Excel brasileiro (ponto e vírgula, acentos certos). Protegido contra fórmula maliciosa (texto que começa com = + - @ ganha um apóstrofo). Nunca sai senha, chave de sessão, chave do 2FA ou código de recuperação.
+- Importar: prévia antes de gravar (linhas novas, atualizadas, colunas ignoradas e erros por linha), tudo ou nada, linha sem "id" cria e com "id" atualiza só as colunas da planilha. Relação pelo id do registro ligado ou por um campo único dele (`empresa__cnpj`). Cada linha passa pelas regras de um cadastro manual e é gravada como sistema, com registro de quem, arquivo e tabela. Durante a conferência e a gravação aparece um carregamento com o nome e o tamanho do arquivo.
+- Nunca entram por planilha: senha, chaves, 2FA, `is_staff`, `is_superuser`, datas de login e de aceite. Usuário importado nasce sem senha e nenhum e-mail sai sozinho.
+- Até 20.000 linhas e 10 MB por arquivo; tipo conferido pelo conteúdo; proteção contra "bomba zip". Medido: 20.000 linhas conferidas e gravadas em menos de um minuto.
+- Lista de usuários com a coluna e o filtro "Acesso": link não enviado, aguardando (com data de envio e vencimento), link vencido e senha definida. Campo novo no usuário: `link_enviado_em`.
+- Bibliotecas novas no 00: openpyxl (Excel) e defusedxml (leitura segura do Excel).
+- Ao atualizar para esta versão: rodar `makemigrations` (campo novo `link_enviado_em`). Se alguma tabela do sistema tiver `change_list_template` próprio no admin, ele precisa estender `infra_vibecoding/admin/change_list.html` para os botões aparecerem.
+- 394 testes automáticos.
+
 ## 0.2.7
 
 Páginas de erro em português (US 3.5).

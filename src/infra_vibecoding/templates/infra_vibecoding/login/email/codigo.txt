@@ -1,0 +1,10 @@
+{% autoescape off %}Olá{% if usuario.nome %}, {{ usuario.nome }}{% endif %}.
+
+Seu código de acesso ao {{ sistema }} é:
+
+{{ codigo }}
+
+Ele vale por {{ minutos }} minutos e só pode ser usado uma vez.
+
+Se não foi você que tentou entrar, alguém pode ter a sua senha: use "Esqueci a senha" na tela de entrar para definir uma nova senha e avise o administrador do sistema.
+{% endautoescape %}

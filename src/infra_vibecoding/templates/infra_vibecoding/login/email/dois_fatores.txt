@@ -1,0 +1,8 @@
+{% autoescape off %}Olá{% if usuario.nome %}, {{ usuario.nome }}{% endif %}.
+
+{% if o_que == "ligou" %}A verificação em duas etapas foi ligada na sua conta do {{ sistema }}{% elif o_que == "trocou" %}O método da verificação em duas etapas da sua conta do {{ sistema }} foi trocado{% elif o_que == "desligou" %}A verificação em duas etapas foi desligada na sua conta do {{ sistema }}{% elif o_que == "zerou" %}Um administrador zerou a verificação em duas etapas da sua conta do {{ sistema }}. No próximo login, ative de novo{% elif o_que == "codigos" %}Novos códigos de recuperação foram gerados na sua conta do {{ sistema }}. Os antigos não valem mais{% elif o_que == "recuperacao" %}Alguém entrou na sua conta do {{ sistema }} usando um código de recuperação. Restam {{ restam }}{% endif %}, em {{ quando|date:"d/m/Y" }} às {{ quando|time:"H:i" }}.
+
+Se foi você, não precisa fazer nada.
+
+Se não foi você, use "Esqueci a senha" na tela de entrar para definir uma nova senha e avise o administrador do sistema.
+{% endautoescape %}

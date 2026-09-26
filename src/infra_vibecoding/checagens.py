@@ -497,3 +497,36 @@ def sec06_limite_de_pedidos(app_configs=None, **kwargs):
             id="SEC.E067",
         ))
     return erros
+
+
+# Verificação em duas etapas (US 3.4)
+
+_MW_2FA = "infra_vibecoding.login.dois_fatores.ExigeDoisFatores"
+
+
+@register(Tags.security)
+def sec06_dois_fatores(app_configs=None, **kwargs):
+    erros = []
+    mw = list(getattr(settings, "MIDDLEWARE", []))
+    if _MW_2FA not in mw or _MW_AUTH not in mw or mw.index(_MW_2FA) < mw.index(_MW_AUTH):
+        erros.append(Error(
+            "Verificação em duas etapas desligada ou fora de ordem: quem tem 2FA poderia entrar sem o código.",
+            hint=f"Não redefina MIDDLEWARE: '{_MW_2FA}' vem do 00, depois do AuthenticationMiddleware.",
+            id="SEC.E068",
+        ))
+    caminho = getattr(settings, "DOIS_FATORES_OBRIGATORIO", None)
+    if caminho:
+        from django.utils.module_loading import import_string
+
+        try:
+            funcao = import_string(caminho)
+        except ImportError:
+            funcao = None
+        if not callable(funcao):
+            erros.append(Error(
+                f"DOIS_FATORES_OBRIGATORIO aponta para '{caminho}', que não é uma função do sistema.",
+                hint="Aponte para uma função que recebe o usuário e responde True (obrigado) ou False, "
+                     "ou deixe DOIS_FATORES_OBRIGATORIO = None.",
+                id="SEC.E069",
+            ))
+    return erros

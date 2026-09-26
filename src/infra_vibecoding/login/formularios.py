@@ -97,3 +97,27 @@ class FormularioSenhaDoCadastro(forms.Form):
         if s1:
             password_validation.validate_password(s1, get_user_model()(email=self.email))
         return dados
+
+
+# Verificação em duas etapas (US 3.4)
+
+def _campo_codigo(label="Código", foco=False):
+    atributos = {"autocomplete": "one-time-code"}  # sem teclado só de números: aceita código de recuperação
+    if foco:
+        atributos["autofocus"] = True
+    return forms.CharField(label=label, max_length=20, strip=True, widget=forms.TextInput(attrs=atributos))
+
+
+class FormularioCodigo(forms.Form):
+    """Código de 6 números (app ou e-mail) ou um código de recuperação (XXXX-XXXX)."""
+
+    codigo = _campo_codigo(foco=True)
+
+
+class FormularioSenhaAtual(forms.Form):
+    senha = forms.CharField(label="Sua senha", strip=False, widget=forms.PasswordInput(
+        attrs={"autocomplete": "current-password"}))
+
+
+class FormularioSenhaECodigo(FormularioSenhaAtual):
+    codigo = _campo_codigo()

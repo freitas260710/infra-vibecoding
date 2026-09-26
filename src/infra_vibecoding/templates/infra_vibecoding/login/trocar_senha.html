@@ -7,6 +7,8 @@
     {{ form.as_p }}
     <button type="submit">Trocar a senha</button>
   </form>
+  <h2>Verificação em duas etapas</h2>
+  <p><a href="{% url 'dois_fatores' %}">Ligar, trocar o método ou gerar códigos de recuperação</a></p>
   <h2>Aparelhos conectados</h2>
   <p>Saia de todos os outros navegadores e aparelhos onde a sua conta está aberta. Este continua conectado.</p>
   <form method="post" action="{% url 'sair_de_todos' %}">

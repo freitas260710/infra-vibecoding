@@ -32,3 +32,7 @@ class InfraVibecodingConfig(AppConfig):
             from .admin import trocar_propria_senha
 
             admin.site.password_change = trocar_propria_senha
+            # O login da tela de banco é o do 00 (senha, bloqueio e verificação em duas etapas, US 3.4).
+            from .admin import entrar_pela_tela_do_00
+
+            admin.site.login = entrar_pela_tela_do_00

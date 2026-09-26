@@ -1,0 +1,13 @@
+{% extends "infra_vibecoding/login/base.html" %}
+{% block titulo %}Desligar a verificação em duas etapas{% endblock %}
+{% block conteudo %}
+  <h1>Desligar a verificação em duas etapas</h1>
+  <p>Sem ela, só a senha protege a sua conta.
+     {% if metodo == "app" %}Digite a sua senha e o código do app.{% else %}Enviamos um código para <strong>{{ email_mascarado }}</strong>. Digite a sua senha e o código.{% endif %}</p>
+  <form method="post">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <button type="submit">Desligar</button>
+  </form>
+  <p><a href="{% url 'dois_fatores' %}">Voltar</a></p>
+{% endblock %}

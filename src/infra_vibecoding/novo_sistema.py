@@ -274,6 +274,7 @@ _TPL_BASE = '''
   <title>{% block titulo %}__NOME__{% endblock %}</title>
 </head>
 <body>
+  {% if messages %}{% for m in messages %}<p>{{ m }}</p>{% endfor %}{% endif %}
   {% block conteudo %}{% endblock %}
 </body>
 </html>
@@ -285,6 +286,7 @@ _TPL_INICIO = '''
   <h1>__NOME__</h1>
   <p>Olá, {{ request.user.get_username }}.</p>
   <p><a href="{% url 'trocar_senha' %}">Trocar a senha</a></p>
+  <p><a href="{% url 'dois_fatores' %}">Verificação em duas etapas</a></p>
   <form method="post" action="{% url 'sair' %}">
     {% csrf_token %}
     <button type="submit">Sair</button>
@@ -604,6 +606,54 @@ class Migration(migrations.Migration):
                     "termos_aceitos_em",
                     models.DateTimeField(
                         blank=True, null=True, verbose_name="termos aceitos em"
+                    ),
+                ),
+                (
+                    "dois_fatores",
+                    models.CharField(
+                        blank=True,
+                        choices=[
+                            ("", "desligada"),
+                            ("app", "app autenticador"),
+                            ("email", "código por e-mail"),
+                        ],
+                        default="",
+                        editable=False,
+                        max_length=5,
+                        verbose_name="verificação em duas etapas",
+                    ),
+                ),
+                (
+                    "dois_fatores_desde",
+                    models.DateTimeField(
+                        blank=True,
+                        editable=False,
+                        null=True,
+                        verbose_name="duas etapas ligada em",
+                    ),
+                ),
+                (
+                    "segredo_do_app",
+                    models.TextField(
+                        blank=True,
+                        default="",
+                        editable=False,
+                        verbose_name="chave do app (cifrada)",
+                    ),
+                ),
+                (
+                    "ultimo_codigo_do_app",
+                    models.BigIntegerField(
+                        default=0, editable=False, verbose_name="último código do app usado"
+                    ),
+                ),
+                (
+                    "codigos_de_recuperacao",
+                    models.JSONField(
+                        blank=True,
+                        default=list,
+                        editable=False,
+                        verbose_name="códigos de recuperação",
                     ),
                 ),
                 (

@@ -1,5 +1,21 @@
 # Histórico de versões
 
+## 0.2.6
+
+Verificação em duas etapas (US 3.4, decisão D51).
+
+- Depois da senha, um código de 6 números. Dois métodos: app autenticador (padrão: Senhas do iPhone, Google Authenticator, Microsoft Authenticator; o código nasce no app a cada 30 segundos, sem nada ser enviado) ou código por e-mail (vale 10 minutos, uma vez só, com "reenviar" limitado). SMS fica para o futuro.
+- Na tela do código vale só o método escolhido ao ativar (sem porta dos fundos para o e-mail). 10 códigos de recuperação, mostrados uma única vez e guardados como a senha. Perdeu o celular: entra com um código de recuperação e troca o método. Perdeu tudo: ação "Zerar a verificação em duas etapas" na tela de banco (derruba as sessões da pessoa e avisa por e-mail).
+- Telas novas: `/entrar/codigo/` (segunda etapa do login) e `/dois-fatores/` (ligar, trocar o método, códigos novos e desligar; ligar, desligar e códigos novos pedem a senha).
+- Quem é obrigado: quem entra na tela de banco, em produção, sempre e só com app (regra do 00). O sistema obriga mais gente com `DOIS_FATORES_OBRIGATORIO` (função que recebe o usuário). Obrigado sem 2FA fica preso na tela de ativar no próximo clique.
+- Nenhum login escapa: trava nova no MIDDLEWARE (`infra_vibecoding.login.dois_fatores.ExigeDoisFatores`) derruba a sessão de quem tem 2FA e não passou pelo código. O login da tela de banco passa a ser a tela de entrar do 00. "Esqueci a senha" não pula o código.
+- A chave do app fica cifrada no banco com a `SECRET_KEY`. Trocar a `SECRET_KEY` só com `SECRET_KEY_FALLBACKS`.
+- Errar o código conta como senha errada no bloqueio de login da 0.2.5. E-mails de aviso ao ligar, trocar, desligar, zerar, gerar códigos novos e usar código de recuperação.
+- Checagens SEC.E068 (trava de 2FA ligada e na ordem) e SEC.E069 (`DOIS_FATORES_OBRIGATORIO` aponta para uma função).
+- Bibliotecas novas no 00: pyotp (códigos do app), segno (QR code gerado dentro do sistema) e cryptography (cifrar a chave).
+- Ao atualizar para esta versão: rodar `makemigrations` (campos novos do usuário: `dois_fatores`, `dois_fatores_desde`, `segredo_do_app`, `ultimo_codigo_do_app`, `codigos_de_recuperacao`). Se o sistema redefinir MIDDLEWARE, ele não liga (SEC.E068). Se o sistema quiser obrigar 2FA por regra própria, criar a função e apontar `DOIS_FATORES_OBRIGATORIO`.
+- 350 testes automáticos.
+
 ## 0.2.5
 
 Proteção contra força bruta em tudo (US 3.3, decisão D50).

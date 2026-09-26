@@ -33,6 +33,8 @@ _ASSUNTOS = {
     "aviso": "Sua senha foi definida",
     "cadastro": "Confirme o seu e-mail para criar a conta",
     "conta_existente": "Você já tem uma conta",
+    "codigo": "Seu código de acesso",
+    "dois_fatores": "Verificação em duas etapas",
 }
 
 

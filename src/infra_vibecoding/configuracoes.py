@@ -80,6 +80,7 @@ MIDDLEWARE = [
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "infra_vibecoding.limites.LimiteDePedidos",  # limite de pedidos em tudo (US 3.3)
+    "infra_vibecoding.login.dois_fatores.ExigeDoisFatores",  # verificação em duas etapas (US 3.4)
     "django.contrib.auth.middleware.LoginRequiredMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
@@ -117,6 +118,10 @@ NOME_DO_SISTEMA = ""  # aparece no assunto e no texto dos e-mails; o sistema pre
 # Cadastro público (US 3.2): desligado. Para ligar: CADASTRO_PUBLICO = "app.modulo.ClasseDeCadastro"
 # (subclasse de infra_vibecoding.login.cadastro.Cadastro, com termos_url e privacidade_url; SEC.E084).
 CADASTRO_PUBLICO = None
+# Verificação em duas etapas (US 3.4): quem entra na tela de banco é obrigado em produção (regra do 00). O sistema
+# obriga mais gente apontando para uma função sua que recebe o usuário e responde True/False.
+# Ex.: DOIS_FATORES_OBRIGATORIO = "nucleo.regras.exige_dois_fatores"
+DOIS_FATORES_OBRIGATORIO = None
 
 # E-mails (US 3.1b, D45). O 00 não tem conta em provedor nenhum: cada sistema configura a própria conta nas
 # variáveis de ambiente (ou no .env). Qualquer provedor que aceite SMTP (Brevo, Mailjet, Resend...).

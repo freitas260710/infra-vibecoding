@@ -47,8 +47,18 @@ quebradas. Mesmo assim, siga todas: acertar de primeira é mais rápido do que e
   SEC.E084), `campos` (campos a mais do formulário), `validar(dados)` (recusar com ValidationError) e
   `ao_confirmar(usuario, dados, request)` (roda quando a conta nasce, na mesma transação; gravar com
   `salvar_como_sistema(self.motivo(usuario))`). Exemplo completo no começo de `infra_vibecoding/login/cadastro.py`.
+- Verificação em duas etapas (2FA) é do 00: app autenticador (padrão) ou código por e-mail, códigos de recuperação,
+  telas em `/dois-fatores/` e `/entrar/codigo/`. Nunca criar 2FA próprio, nunca fazer login por fora da tela de
+  entrar (o 00 derruba sessão de quem tem 2FA e não passou pelo código) e nunca ler ou gravar os campos
+  `dois_fatores`, `segredo_do_app` e `codigos_de_recuperacao`. Tela de banco em produção: obrigatório, só app
+  (regra do 00). Para obrigar mais gente: `DOIS_FATORES_OBRIGATORIO = "app.modulo.funcao"` no settings.py, uma
+  função que recebe o usuário e responde True/False (ex.: a empresa dele exige). Ela roda a cada pedido: manter
+  simples. Perdeu o celular e os códigos: ação "Zerar a verificação em duas etapas" na tela de banco.
 - Para mudar só o visual: criar no sistema `templates/infra_vibecoding/login/<tela>.html` (entrar, primeiro_acesso,
-  esqueci_a_senha, definir_senha, trocar_senha, criar_conta, cadastro_senha, base), mantendo os campos do formulário e o `{% csrf_token %}`.
+  esqueci_a_senha, definir_senha, trocar_senha, criar_conta, cadastro_senha, verificar_codigo, dois_fatores,
+  ativar_app, ativar_email, codigos_de_recuperacao, desligar_dois_fatores, base), mantendo os campos do formulário
+  e o `{% csrf_token %}`. Na tela ativar_app, manter `{{ qr_code }}` e `{{ chave }}`. O `base.html` do sistema
+  precisa mostrar as mensagens (`messages`): as telas do 00 avisam por elas (ex.: "entrou com código de recuperação").
 
 ## Telas
 - Toda tela declara quem pode abrir, com `infra_vibecoding.telas`: `@publica`, `@logado` ou
@@ -76,6 +86,7 @@ quebradas. Mesmo assim, siga todas: acertar de primeira é mais rápido do que e
   middlewares, DEBUG). O sistema não liga (SEC.E011 a SEC.E020, SEC.E061 a SEC.E065).
 - Nunca silenciar checagens do 00: `SILENCED_SYSTEM_CHECKS` com `SEC.*` impede o sistema de ligar.
 - Segredos (chaves, senhas, tokens) nunca no código. Sempre em variável de ambiente ou no `.env` (fora do Git).
+  Trocar a `SECRET_KEY` só com a antiga em `SECRET_KEY_FALLBACKS`: sem isso, as chaves do app de 2FA deixam de abrir.
 - E-mail: mandar com `send_mail` do Django, normalmente. O 00 cuida do provedor e do desvio para a caixa de teste
   fora de produção. Nunca redefinir `EMAIL_BACKEND` (SEC.E091) nem escrever lógica de "está em produção?" no fluxo.
 

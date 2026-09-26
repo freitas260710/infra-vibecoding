@@ -35,6 +35,7 @@ from functools import wraps
 from django import forms
 from django.contrib import admin, messages
 from django.contrib.auth.admin import UserAdmin
+from django.contrib.auth.decorators import login_not_required
 from django.contrib.auth.forms import ReadOnlyPasswordHashField, UserChangeForm
 from django.contrib.auth.hashers import UNUSABLE_PASSWORD_PREFIX
 from django.core.exceptions import PermissionDenied
@@ -183,6 +184,28 @@ def trocar_propria_senha(request, extra_context=None):
     return redirect("trocar_senha")
 
 
+@login_not_required
+def entrar_pela_tela_do_00(request, extra_context=None):
+    """Login da tela de banco: vai para a tela de entrar do 00 (senha, bloqueio e verificação em duas etapas).
+
+    Quem já entrou e acessa a tela de banco segue para ela. Quem já entrou mas não acessa recebe 403 (sem ficar
+    indo e voltando do login)."""
+    from django.conf import settings
+    from django.shortcuts import resolve_url
+    from django.urls import reverse
+    from django.utils.http import url_has_allowed_host_and_scheme, urlencode
+
+    destino = request.GET.get("next") or ""
+    if not url_has_allowed_host_and_scheme(destino, allowed_hosts={request.get_host()}):
+        destino = reverse("admin:index")
+    if request.user.is_authenticated:
+        if admin.site.has_permission(request):
+            return redirect(destino)
+        log.warning("%s", _motivo(request, "tentou abrir a tela de banco sem permissão"))
+        raise PermissionDenied("Você não tem acesso à tela de banco.")
+    return redirect(f"{resolve_url(settings.LOGIN_URL)}?{urlencode({'next': destino})}")
+
+
 class AdminUsuarioSeguro(AdminSeguro, UserAdmin):
     """Tela de banco da tabela de usuário (login por e-mail), passando pelo 00 como as outras."""
 
@@ -190,12 +213,14 @@ class AdminUsuarioSeguro(AdminSeguro, UserAdmin):
     list_display = ("email", "nome", "is_staff", "is_active")
     list_filter = ("is_staff", "is_superuser", "is_active")
     search_fields = ("email", "nome")
-    readonly_fields = ("last_login", "date_joined", "email_confirmado_em", "termos_aceitos_em")
+    readonly_fields = ("last_login", "date_joined", "email_confirmado_em", "termos_aceitos_em", "dois_fatores",
+                       "dois_fatores_desde")
     fieldsets = (
         (None, {"fields": ("email", "password")}),
         ("Dados", {"fields": ("nome",)}),
         ("Permissões", {"fields": ("is_active", "is_staff", "is_superuser", "groups", "user_permissions")}),
         ("Datas", {"fields": ("last_login", "date_joined", "email_confirmado_em", "termos_aceitos_em")}),
+        ("Verificação em duas etapas", {"fields": ("dois_fatores", "dois_fatores_desde")}),
     )
     add_fieldsets = (
         (None, {
@@ -204,7 +229,7 @@ class AdminUsuarioSeguro(AdminSeguro, UserAdmin):
             "description": "O usuário nasce sem senha e recebe por e-mail o link para definir a própria senha.",
         }),
     )
-    actions = ["enviar_link_de_acesso", "desconectar_de_todos_os_aparelhos"]
+    actions = ["enviar_link_de_acesso", "desconectar_de_todos_os_aparelhos", "zerar_verificacao_em_duas_etapas"]
 
     def save_model(self, request, obj, form, change):
         super().save_model(request, obj, form, change)
@@ -236,6 +261,28 @@ class AdminUsuarioSeguro(AdminSeguro, UserAdmin):
                 request.user.chave_de_sessao = usuario.chave_de_sessao
                 update_session_auth_hash(request, request.user)
         self.message_user(request, f"{quantos} usuário(s) desconectado(s) de todos os aparelhos.", messages.SUCCESS)
+
+    @admin.action(description="Zerar a verificação em duas etapas (perdeu o celular e os códigos)")
+    def zerar_verificacao_em_duas_etapas(self, request, queryset):
+        """A pessoa ativa de novo no próximo login. Derruba as sessões dela e avisa por e-mail. Ninguém vê a chave."""
+        from django.contrib.auth import update_session_auth_hash
+
+        from .login import dois_fatores
+        from .login.sessoes import trocar_chave_de_sessao
+
+        zerados = []
+        for usuario in queryset:
+            if not usuario.dois_fatores:
+                continue
+            dois_fatores.desligar(usuario, _motivo(request, f"zerou a verificação em duas etapas de {usuario.email}"))
+            trocar_chave_de_sessao(usuario, _motivo(request, f"derrubou as sessões de {usuario.email} (2FA zerado)"))
+            dois_fatores.avisar(request, usuario, "zerou")
+            zerados.append(usuario.email)
+            if usuario.pk == request.user.pk:
+                request.user.chave_de_sessao = usuario.chave_de_sessao
+                update_session_auth_hash(request, request.user)
+        self.message_user(request, f"Verificação em duas etapas zerada para {len(zerados)} usuário(s).",
+                          messages.SUCCESS)
 
     @admin.action(description="Enviar link de acesso por e-mail")
     def enviar_link_de_acesso(self, request, queryset):

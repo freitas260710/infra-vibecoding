@@ -144,12 +144,13 @@ def test_vinte_tentativas_erradas_do_mesmo_endereco_bloqueiam_o_endereco(ana):
 
 
 def test_login_da_tela_de_banco_tambem_bloqueia(client):
-    chefe = Usuario.objects.create_superuser("chefe@exemplo.com", password=SENHA)
+    # Desde a 0.2.6 o login da tela de banco é a tela de entrar do 00 (mesmo bloqueio e verificação em duas etapas).
+    Usuario.objects.create_superuser("chefe@exemplo.com", password=SENHA)
+    assert client.get("/gestao-interna/login/")["Location"].startswith("/entrar/")
     for _ in range(5):
-        client.post("/gestao-interna/login/", {"username": "chefe@exemplo.com", "password": "errada"})
-    client.post("/gestao-interna/login/", {"username": "chefe@exemplo.com", "password": SENHA})
+        entrar(client, "chefe@exemplo.com", "errada")
+    entrar(client, "chefe@exemplo.com")
     assert client.get("/gestao-interna/").status_code == 302  # não entrou
-    assert chefe.pk
 
 
 def test_esqueci_a_senha_continua_funcionando_com_bloqueio(client, ana, mailoutbox):

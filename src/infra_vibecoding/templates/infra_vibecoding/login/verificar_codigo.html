@@ -1,0 +1,23 @@
+{% extends "infra_vibecoding/login/base.html" %}
+{% block titulo %}Verificação em duas etapas{% endblock %}
+{% block conteudo %}
+  <h1>Verificação em duas etapas</h1>
+  {% if metodo == "app" %}
+    <p>Digite o código de 6 números que aparece no seu app autenticador.</p>
+  {% else %}
+    <p>Digite o código de 6 números que enviamos para <strong>{{ email_mascarado }}</strong>.</p>
+  {% endif %}
+  <form method="post">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <button type="submit">Enviar</button>
+  </form>
+  {% if metodo == "email" %}
+    <form method="post" action="{% url 'reenviar_codigo' %}">
+      {% csrf_token %}
+      <p>Não recebeu o código? <button type="submit">Reenviar</button></p>
+    </form>
+  {% endif %}
+  <p>Perdeu o acesso ao código? Digite um dos seus códigos de recuperação no mesmo campo.</p>
+  <p><a href="{% url 'entrar' %}">Voltar</a></p>
+{% endblock %}

@@ -1,0 +1,10 @@
+{% extends "infra_vibecoding/login/base.html" %}
+{% block titulo %}Códigos de recuperação{% endblock %}
+{% block conteudo %}
+  <h1>{% if ligou %}Verificação em duas etapas ligada{% else %}Códigos de recuperação novos{% endif %}</h1>
+  <p><strong>Guarde estes códigos agora. Eles aparecem só esta vez.</strong></p>
+  <p>Se você perder o acesso ao código (por exemplo, perdeu o celular), cada um destes códigos vale para entrar uma vez.
+     Guarde num lugar seguro, fora do celular (gerenciador de senhas ou papel).</p>
+  <ul>{% for c in codigos %}<li><code>{{ c }}</code></li>{% endfor %}</ul>
+  <p><a href="{% url 'dois_fatores' %}">Já guardei</a></p>
+{% endblock %}

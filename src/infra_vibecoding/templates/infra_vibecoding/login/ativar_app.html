@@ -1,0 +1,18 @@
+{% extends "infra_vibecoding/login/base.html" %}
+{% block titulo %}Ativar com app autenticador{% endblock %}
+{% block conteudo %}
+  <h1>{% if trocando %}Trocar para o app autenticador{% else %}Ativar com app autenticador{% endif %}</h1>
+  <ol>
+    <li>Abra o app autenticador no celular (Senhas do iPhone, Google Authenticator ou Microsoft Authenticator).</li>
+    <li>Escaneie este QR code com o app:</li>
+  </ol>
+  <div>{{ qr_code }}</div>
+  <p>Não consegue escanear? Digite esta chave no app: <code>{{ chave }}</code></p>
+  <p>3. Digite a sua senha e o código de 6 números que apareceu no app.</p>
+  <form method="post">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <button type="submit">Ativar</button>
+  </form>
+  <p><a href="{% url 'dois_fatores' %}">Voltar</a></p>
+{% endblock %}

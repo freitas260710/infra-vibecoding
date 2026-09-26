@@ -1,0 +1,34 @@
+{% extends "infra_vibecoding/login/base.html" %}
+{% block titulo %}Verificação em duas etapas{% endblock %}
+{% block conteudo %}
+  <h1>Verificação em duas etapas</h1>
+  {% if pendente %}
+    <p><strong>A verificação em duas etapas é obrigatória para a sua conta.</strong> Ative para continuar usando o sistema.</p>
+  {% endif %}
+  {% if metodo %}
+    <p>Ligada desde {{ desde|date:"d/m/Y" }}, com {{ metodo_nome }}. Códigos de recuperação restantes: {{ restam }}.</p>
+  {% else %}
+    <p>Desligada. Além da senha, o sistema vai pedir um código de 6 números a cada login.</p>
+  {% endif %}
+
+  <h2>{% if metodo %}Trocar o método{% else %}Ativar{% endif %}</h2>
+  <p><a href="{% url 'ativar_app' %}">App autenticador{% if not metodo %} (recomendado){% endif %}</a>:
+     Senhas do iPhone, Google Authenticator ou Microsoft Authenticator. O código aparece no app, sem precisar de internet.</p>
+  {% if not so_app %}
+    <p><a href="{% url 'ativar_email' %}">Código por e-mail</a>: o sistema manda o código para o seu e-mail a cada login.</p>
+  {% endif %}
+
+  {% if metodo %}
+    <h2>Códigos de recuperação</h2>
+    <p>Gerar 10 códigos novos. Os antigos deixam de valer.</p>
+    <form method="post" action="{% url 'novos_codigos' %}">
+      {% csrf_token %}
+      {{ form_senha.as_p }}
+      <button type="submit">Gerar códigos novos</button>
+    </form>
+    {% if not obrigatoria %}
+      <p><a href="{% url 'desligar_dois_fatores' %}">Desligar a verificação em duas etapas</a></p>
+    {% endif %}
+  {% endif %}
+  <form method="post" action="{% url 'sair' %}">{% csrf_token %}<button type="submit">Sair</button></form>
+{% endblock %}

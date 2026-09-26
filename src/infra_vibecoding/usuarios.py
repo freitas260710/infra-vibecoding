@@ -27,6 +27,9 @@ O que muda em relação ao usuário padrão do Django:
   todos os aparelhos (infra_vibecoding.login.desconectar).
 - termos_aceitos_em (US 3.2): data em que a pessoa aceitou os termos de uso e a política de privacidade no cadastro
   público.
+- Verificação em duas etapas (US 3.4): dois_fatores ("", "app" ou "email"), dois_fatores_desde, a chave do app
+  cifrada, o último código do app usado e os códigos de recuperação guardados como senha. Só o 00 grava esses
+  campos (infra_vibecoding.login.dois_fatores); nenhum deles aparece em formulário.
 - Gravações liberadas sem dizer quem: só a data do último login (feita pelo próprio login) e a troca do método
   de guardar a senha durante a conferência da senha. Todo o resto usa salvar(usuario) ou salvar_como_sistema.
 """
@@ -103,6 +106,14 @@ class UsuarioSeguro(ModeloSeguro, AbstractBaseUser, PermissionsMixin):
         "chave de sessão", max_length=64, default=nova_chave_de_sessao, editable=False
     )
     termos_aceitos_em = models.DateTimeField("termos aceitos em", null=True, blank=True)
+    dois_fatores = models.CharField(
+        "verificação em duas etapas", max_length=5, blank=True, default="", editable=False,
+        choices=[("", "desligada"), ("app", "app autenticador"), ("email", "código por e-mail")],
+    )
+    dois_fatores_desde = models.DateTimeField("duas etapas ligada em", null=True, blank=True, editable=False)
+    segredo_do_app = models.TextField("chave do app (cifrada)", blank=True, default="", editable=False)
+    ultimo_codigo_do_app = models.BigIntegerField("último código do app usado", default=0, editable=False)
+    codigos_de_recuperacao = models.JSONField("códigos de recuperação", default=list, blank=True, editable=False)
 
     objects = GerenciadorUsuarios()
 

@@ -1,0 +1,11 @@
+{% include "infra_vibecoding/rastreio/_codigo.html" %}
+<p>Cada permissão conferida neste clique, na ordem. "ver (lista)" é o filtro da regra aplicado a uma consulta; "como sistema" é leitura ou gravação sem regra de usuário, com o motivo.</p>
+{% if regras %}
+<table>
+  <thead><tr><th>#</th><th>Tipo</th><th>Quem</th><th>Ação</th><th>Tabela</th><th>Registro</th><th>Resultado</th></tr></thead>
+  <tbody>{% for r in regras %}
+    <tr><td>{{ forloop.counter }}</td><td>{{ r.tipo }}</td><td>{{ r.pessoa }}</td><td>{{ r.acao }}</td><td>{{ r.tabela }}</td><td>{{ r.registro }}</td>
+      <td>{% if r.resultado is True %}liberou{% elif r.resultado is False %}<strong style="color:#ba2121">barrou</strong>{% else %}aplicado{% endif %}</td></tr>
+  {% endfor %}</tbody>
+</table>
+{% else %}<p>Nenhuma permissão conferida neste clique.</p>{% endif %}

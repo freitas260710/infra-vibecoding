@@ -39,6 +39,8 @@ from contextvars import ContextVar
 from django.core.exceptions import PermissionDenied
 from django.db import models, transaction
 
+from .pedido import anotar_regra
+
 log = logging.getLogger("infra_vibecoding.auditoria")
 
 _REGISTRO = {}
@@ -125,11 +127,14 @@ def pode(usuario, acao, obj_ou_model):
     obj = None if isinstance(obj_ou_model, type) else obj_ou_model
     pol = politica_de(model)
     if pol is None or usuario is None:
-        return False
-    if not usuario.is_authenticated and not pol.anonimo:
-        return False
-    with _rodando_regra():
-        return bool(pol.pode(usuario, acao, obj))
+        resultado = False
+    elif not usuario.is_authenticated and not pol.anonimo:
+        resultado = False
+    else:
+        with _rodando_regra():
+            resultado = bool(pol.pode(usuario, acao, obj))
+    anotar_regra("pode", usuario, acao, model, obj, resultado)
+    return resultado
 
 
 def exigir(usuario, acao, obj_ou_model):
@@ -242,6 +247,7 @@ class QuerySetSeguro(models.QuerySet):
             )
 
     def para(self, usuario):
+        anotar_regra("escopo", usuario, "ver (lista filtrada pela regra)", self.model)
         pol = politica_de(self.model)
         qs = self._clone()
         qs._escopo = "usuario"
@@ -266,6 +272,7 @@ class QuerySetSeguro(models.QuerySet):
     def como_sistema(self, motivo):
         _exigir_motivo(motivo)
         log.info("como sistema: %s (motivo: %s)", self.model.__name__, motivo)
+        anotar_regra("sistema", None, f"como sistema: {motivo}", self.model)
         qs = self._clone()
         qs._escopo = "sistema"
         qs._motivo = motivo

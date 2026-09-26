@@ -87,6 +87,19 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
 
+# Painel de rastreio (US 6.4, D60): só fora de produção (SEC.E141). Aparece para superusuário que acrescenta
+# ?debug_mode=true ao endereço de uma tela (infra_vibecoding.rastreio). Em produção nem é carregado.
+if not PRODUCAO:
+    from debug_toolbar.settings import PANELS_DEFAULTS as _ABAS_DA_FERRAMENTA
+
+    INSTALLED_APPS.append("debug_toolbar")
+    MIDDLEWARE.insert(MIDDLEWARE.index("infra_vibecoding.login.dois_fatores.ExigeDoisFatores") + 1,
+                      "infra_vibecoding.rastreio.PainelDeRastreio")
+    DEBUG_TOOLBAR_CONFIG = {"SHOW_TOOLBAR_CALLBACK": "infra_vibecoding.rastreio.mostrar_painel",
+                            "TOOLBAR_LANGUAGE": "pt-br"}
+    DEBUG_TOOLBAR_PANELS = [*_ABAS_DA_FERRAMENTA, "infra_vibecoding.rastreio.Regras",
+                            "infra_vibecoding.rastreio.Historico", "infra_vibecoding.rastreio.Acessos"]
+
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",

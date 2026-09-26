@@ -1,0 +1,10 @@
+{% include "infra_vibecoding/rastreio/_codigo.html" %}
+{% if linhas %}
+<table>
+  <thead><tr><th>O que</th><th>Tabela</th><th>Registro</th><th>Quem</th><th>Mudanças</th></tr></thead>
+  <tbody>{% for l in linhas %}
+    <tr><td>{{ l.acao }}</td><td>{{ l.tabela }}</td><td>{{ l.rotulo }} ({{ l.registro }})</td><td>{{ l.quem }}</td>
+      <td>{% for m in l.mudancas %}<div><strong>{{ m.nome }}</strong>: {% if m.antes %}{{ m.antes }} → {% endif %}{{ m.depois|default:"(vazio)" }}</div>{% endfor %}</td></tr>
+  {% endfor %}</tbody>
+</table>
+{% else %}<p>Nada foi gravado no histórico neste clique.</p>{% endif %}

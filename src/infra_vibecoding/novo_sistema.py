@@ -445,6 +445,16 @@ uv run python manage.py check
 - `/entrar/`, `/sair/`, `/primeiro-acesso/`, `/esqueci-a-senha/` e `/trocar-senha/`: telas de login do 00.
 - `/__ADMIN__/`: tela de banco (admin). O login é pelo e-mail.
 
+## Depurar (entender o que aconteceu num clique)
+
+- Painel de rastreio: logado como superusuário, acrescente `?debug_mode=true` ao endereço de uma tela (ex.:
+  `/?debug_mode=true`). Aparece na lateral o que aconteceu no clique: consultas ao banco, regras conferidas (liberou
+  ou barrou), histórico gravado e acessos registrados. Navegando pelos links, continua; tirando do endereço, some.
+  Só no Mac e no dev online; em produção nunca aparece.
+- Passo a passo no VS Code: clique à esquerda do número de uma linha do código (aparece uma bolinha vermelha),
+  aperte F5 e escolha "Depurar o sistema (passo a passo)". Abra a tela no navegador: o programa para naquela linha e
+  mostra os valores. F10 anda uma linha, F5 continua. Precisa da extensão Python do VS Code.
+
 ## E-mail
 
 Sem provedor, os e-mails (primeiro acesso, redefinição de senha) aparecem no terminal do runserver. Para mandar de
@@ -705,8 +715,38 @@ class Migration(migrations.Migration):
     ]
 '''
 
+# Depurar passo a passo no VS Code (US 6.4): marca uma linha (bolinha vermelha à esquerda do número), aperta F5 e
+# abre a tela no navegador. O programa para naquela linha e mostra os valores, como o passo a passo do Bubble.
+_VSCODE_LAUNCH = '''
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Depurar o sistema (passo a passo)",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/manage.py",
+            "args": ["runserver", "--noreload"],
+            "django": true,
+            "justMyCode": true,
+            "envFile": "${workspaceFolder}/.env"
+        },
+        {
+            "name": "Depurar os testes (passo a passo)",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "pytest",
+            "args": ["-q"],
+            "django": true,
+            "justMyCode": true
+        }
+    ]
+}
+'''
+
 _MODELOS = {
     "pyproject.toml": _PYPROJECT,
+    ".vscode/launch.json": _VSCODE_LAUNCH,
     ".python-version": _PYTHON_VERSION,
     ".gitignore": _GITIGNORE,
     ".env.exemplo": _ENV_EXEMPLO,

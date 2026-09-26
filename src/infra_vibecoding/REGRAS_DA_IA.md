@@ -128,6 +128,14 @@ quebradas. Mesmo assim, siga todas: acertar de primeira é mais rápido do que e
 - Nunca pôr dado pessoal (e-mail, CPF, nome) em mensagem de exceção (`raise ...("...")`): a mensagem vai para o
   Sentry. O 00 troca e-mails, números longos e "senha=" por marcadores, mas isso é a última defesa, não a regra.
 
+## Painel de rastreio e depuração
+- Para entender um clique no Mac ou no dev online: logado como superusuário, `?debug_mode=true` no endereço da
+  tela. O painel mostra consultas ao banco, regras conferidas, histórico gravado e acessos. Nunca ligar o painel de
+  outro jeito, nunca colocar `debug_toolbar` nas configurações do sistema nem mudar `DEBUG_TOOLBAR_CONFIG`
+  (SEC.E141, SEC.E142). Em produção ele não existe.
+- Passo a passo: o sistema tem `.vscode/launch.json` ("Depurar o sistema"). Nunca deixar `print` ou
+  `breakpoint()` esquecidos no código.
+
 ## Limite de pedidos (força bruta)
 - O 00 limita TODO pedido (120 por minuto por visitante, 240 por usuário logado) e bloqueia o login por 15 minutos
   depois de 5 senhas erradas (SEC.E066). Não redefinir MIDDLEWARE.

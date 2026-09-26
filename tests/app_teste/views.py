@@ -99,3 +99,22 @@ def negado_em_transacao(request):
         Pedido(dono=request.user, titulo="desfeito").salvar(request.user)
         exigir(request.user, "aprovar", Pedido)
     return HttpResponse("não chega aqui")
+
+
+# US 6.4: telas para o painel de rastreio (página HTML de verdade, com </body>).
+@logado
+def rastreio_tela(request):
+    from infra_vibecoding.dados import pode
+
+    quantos = Pedido.objects.para(request.user).count()
+    pode(request.user, "aprovar", Pedido)
+    pode(request.user, "excluir", Pedido)  # sem registro: a regra de teste responde não
+    return HttpResponse(f"<html><body><p>{quantos} pedido(s)</p><a href='/rastreio/'>de novo</a></body></html>")
+
+
+@logado
+def rastreio_salvar(request):
+    from django.shortcuts import redirect
+
+    Pedido(dono=request.user, titulo=request.POST.get("titulo", "Mesa")).salvar(request.user)
+    return redirect("/rastreio/")

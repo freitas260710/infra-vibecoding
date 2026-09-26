@@ -1,3 +1,3 @@
 """Infra Vibecoding: motor de segurança obrigatório para sistemas Django."""
 
-__version__ = "0.4.2"
+__version__ = "0.4.3"

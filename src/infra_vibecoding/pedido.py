@@ -13,11 +13,32 @@ _LETRAS = "23456789ABCDEFGHJKMNPQRSTUVWXYZ"
 _PEDIDO = ContextVar("infra_vibecoding_pedido", default=None)  # _Pedido
 
 
+PARAMETRO_DO_PAINEL = "debug_mode"  # ?debug_mode=true liga o painel de rastreio (US 6.4)
+
+
 class _Pedido:
-    __slots__ = ("codigo", "request", "acessos")
+    __slots__ = ("codigo", "request", "acessos", "regras")
 
     def __init__(self, codigo, request):
         self.codigo, self.request, self.acessos = codigo, request, []
+        self.regras = None  # lista só quando o painel de rastreio está ligado neste clique (US 6.4)
+
+
+def anotar_regra(tipo, usuario, acao, modelo, obj=None, resultado=None):
+    """Painel de rastreio (US 6.4): anota uma permissão conferida no clique. Sem o painel ligado, não faz nada."""
+    atual = _PEDIDO.get()
+    if atual is None or atual.regras is None:
+        return
+    autenticado = getattr(usuario, "is_authenticated", False)
+    atual.regras.append({
+        "tipo": tipo,
+        "pessoa": "sistema" if tipo == "sistema" else (
+            (getattr(usuario, "email", "") or str(usuario.pk)) if autenticado else "visitante"),
+        "acao": str(acao),
+        "tabela": modelo._meta.label,
+        "registro": "" if obj is None or getattr(obj, "pk", None) is None else str(obj.pk),
+        "resultado": resultado,
+    })
 
 
 def novo_codigo():

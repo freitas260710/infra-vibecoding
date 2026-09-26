@@ -19,4 +19,6 @@ urlpatterns = [
     path("pedidos/<int:pk>/", views.pedido_de_outro),
     path("pedidos/<int:pk>/renomear/", views.renomear_pedido),
     path("negado-em-transacao/", views.negado_em_transacao),
+    path("rastreio/", views.rastreio_tela),
+    path("rastreio/salvar/", views.rastreio_salvar),
 ]

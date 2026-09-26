@@ -39,3 +39,17 @@ urlpatterns = [
     path("criar-conta/confirmar/<str:codigo>/", views.ConfirmarCadastro.as_view(), name="confirmar_cadastro"),
     path("criar-conta/senha/", views.SenhaDoCadastro.as_view(), name="senha_do_cadastro"),
 ]
+
+
+def _painel_de_rastreio():
+    """Endereços internos do painel de rastreio (US 6.4): só fora de produção, só para superusuário."""
+    from django.apps import apps
+    from django.conf import settings
+    from django.urls import include
+
+    if apps.is_installed("debug_toolbar") and getattr(settings, "AMBIENTE", "producao") != "producao":
+        return [path("__debug__/", include("debug_toolbar.urls"))]
+    return []
+
+
+urlpatterns += _painel_de_rastreio()

@@ -640,3 +640,33 @@ def sec13_monitor_de_erros(app_configs=None, **kwargs):
             id="SEC.E132",
         )]
     return []
+
+
+# Painel de rastreio (US 6.4)
+
+_CHAMADA_DO_PAINEL = "infra_vibecoding.rastreio.mostrar_painel"
+
+
+@register(Tags.security)
+def sec14_painel_de_rastreio(app_configs=None, **kwargs):
+    from django.apps import apps as registro
+
+    instalado = registro.is_installed("debug_toolbar") or any(
+        "debug_toolbar" in m or m.endswith("rastreio.PainelDeRastreio") for m in getattr(settings, "MIDDLEWARE", []))
+    if not instalado:
+        return []
+    if getattr(settings, "AMBIENTE", "producao") == "producao":
+        return [Error(
+            "Painel de rastreio ligado em produção: consultas ao banco e dados apareceriam na tela.",
+            hint="Não coloque debug_toolbar em INSTALLED_APPS nem em MIDDLEWARE. O 00 liga o painel sozinho só fora "
+                 "de produção.",
+            id="SEC.E141",
+        )]
+    chamada = (getattr(settings, "DEBUG_TOOLBAR_CONFIG", {}) or {}).get("SHOW_TOOLBAR_CALLBACK")
+    if chamada != _CHAMADA_DO_PAINEL:
+        return [Error(
+            "O painel de rastreio foi aberto para além do superusuário com ?debug_mode=true.",
+            hint=f"Não redefina DEBUG_TOOLBAR_CONFIG['SHOW_TOOLBAR_CALLBACK']: ele vem do 00 como '{_CHAMADA_DO_PAINEL}'.",
+            id="SEC.E142",
+        )]
+    return []

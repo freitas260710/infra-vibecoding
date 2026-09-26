@@ -1,5 +1,27 @@
 # Histórico de versões
 
+## 0.4.3
+
+Painel de rastreio e depuração passo a passo (US 6.4, decisão D60). Fecha a etapa 6.
+
+- Painel de rastreio, parecido com o debugger do Bubble: logado como superusuário, no Mac ou no dev online,
+  acrescente `?debug_mode=true` ao endereço de qualquer tela. O painel aparece na lateral com as abas da ferramenta
+  django-debug-toolbar (consultas ao banco, tempo, telas, cabeçalhos, histórico de cliques) e as do 00:
+  Regras (cada permissão conferida no clique, se liberou ou barrou), Histórico dos dados (o que foi gravado) e
+  Acessos (o que entrou no registro de acessos), com o código do clique e o atalho para a tela de Registros.
+- Navegando pelos links e formulários da tela, e depois de salvar, o `debug_mode` continua; tirando do endereço, o
+  painel some. Para ver o que um salvamento fez, abra "Histórico" (de cliques) no painel e troque para o clique do
+  envio (POST).
+- Só superusuário, só fora de produção. Para os outros, o `debug_mode` não faz nada. Em produção o painel nem é
+  carregado; colocá-lo à mão ou abrir para mais gente impede o sistema de ligar (SEC.E141 e SEC.E142). Sem o
+  `debug_mode`, não anota nada.
+- Sistemas novos nascem com `.vscode/launch.json` para depurar passo a passo no VS Code (linha marcada, F5) e com a
+  explicação no README.
+- Biblioteca nova no 00: django-debug-toolbar.
+- Ao atualizar para esta versão: nada obrigatório. Para depurar passo a passo num sistema já existente, copiar o
+  `.vscode/launch.json` de um sistema novo.
+- 514 testes automáticos.
+
 ## 0.4.2
 
 Monitor de erros com Sentry (US 6.3, decisões D59 e D60).

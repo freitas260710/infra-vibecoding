@@ -1,0 +1,7 @@
+{% include "infra_vibecoding/rastreio/_codigo.html" %}
+{% if linhas %}
+<table>
+  <thead><tr><th>Tipo</th><th>Pessoa</th><th>Detalhe</th></tr></thead>
+  <tbody>{% for l in linhas %}<tr><td>{{ l.tipo }}</td><td>{{ l.pessoa }}</td><td>{{ l.detalhe }}</td></tr>{% endfor %}</tbody>
+</table>
+{% else %}<p>Nada entrou no registro de acessos neste clique.</p>{% endif %}

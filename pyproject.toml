@@ -1,6 +1,6 @@
 [project]
 name = "infra-vibecoding"
-version = "0.4.2"
+version = "0.4.3"
 description = "Infra Vibecoding: motor de segurança obrigatório para sistemas Django"
 readme = "README.md"
 authors = [{ name = "Ed Freitas", email = "331106550+freitas260710@users.noreply.github.com" }]
@@ -10,6 +10,7 @@ dependencies = [
     "cryptography>=50.0.1",
     "defusedxml>=0.7.1",
     "django>=5.2,<5.3",
+    "django-debug-toolbar>=8.0.0",
     "openpyxl>=3.1.5",
     "pillow>=12.3.0",
     "pyotp>=2.10.0",

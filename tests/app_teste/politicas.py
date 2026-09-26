@@ -83,5 +83,7 @@ class PoliticaAnexo(Politica):
     def pode(self, usuario, acao, obj=None):
         if acao in ("criar", "editar", "excluir"):
             return obj is None or obj.pedido.dono_id == usuario.id
+        if acao == "compartilhar":  # US 4.2: o dono do pedido pode mandar o anexo para fora
+            return obj is not None and obj.pedido.dono_id == usuario.id
         return False
 

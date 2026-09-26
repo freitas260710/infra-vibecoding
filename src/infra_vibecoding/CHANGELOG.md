@@ -1,5 +1,18 @@
 # Histórico de versões
 
+## 0.3.1
+
+Campo de arquivo público e link de compartilhamento (US 4.2, decisão D58).
+
+- `CampoArquivo(publico="motivo")`: arquivo que abre sem login, em `/arquivos/publico/<id>/`, com cache no navegador. Sem motivo escrito (mínimo 10 letras), o sistema não liga. Continua com tipo conferido, tamanho e GPS apagado. Arquivos enviados enquanto o campo era privado continuam privados. Trocou o arquivo, o endereço antigo morre.
+- Link de compartilhamento de arquivo privado para quem não é usuário: `compartilhar(usuario, registro, campo, dias)` ou a tela pronta `/arquivos/<id>/compartilhar/` (`{{ a.url_compartilhar }}`), com prazo (padrão 7 dias, máximo 30), lista de links ativos e cancelar.
+- Fechado por padrão: só compartilha quem vê o registro E tem a ação "compartilhar" liberada na política da tabela.
+- Quem recebe abre `/c/<código>/` sem login dentro do prazo. Vencido, cancelado, arquivo trocado ou registro excluído: página "Link indisponível" (410). Contagem de downloads e registro de cada download. O código do link não fica no banco (só um resumo).
+- Tela de banco: lista de links de compartilhamento (só superusuário), com situação e ação de cancelar. Sem criar, editar nem planilha.
+- Tabelas internas do 00 podem desligar os botões de planilha (`permite_planilha = False` no admin).
+- Ao atualizar para esta versão: rodar `migrate` (tabela nova de links e campo novo em arquivos). Para liberar o compartilhamento, a política da tabela responde a ação "compartilhar".
+- 439 testes automáticos.
+
 ## 0.3.0
 
 Arquivos privados (US 4.1, etapa 4, decisões D55 e D56).

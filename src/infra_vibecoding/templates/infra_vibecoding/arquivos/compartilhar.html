@@ -1,0 +1,31 @@
+{% extends "infra_vibecoding/login/base.html" %}
+{% comment %}Compartilhar um arquivo com quem não é usuário (US 4.2). O sistema troca o visual criando
+templates/infra_vibecoding/arquivos/compartilhar.html, mantendo os campos e o {% csrf_token %}.{% endcomment %}
+{% block titulo %}Compartilhar arquivo{% endblock %}
+{% block conteudo %}
+  <h1>Compartilhar "{{ arquivo.nome }}"</h1>
+  <p>Quem receber o link baixa o arquivo sem login, até o prazo acabar. Você pode cancelar antes.</p>
+  {% if novo %}
+    <p><strong>Link criado. Copie agora:</strong> ele aparece só esta vez.</p>
+    <p><input type="text" value="{{ novo }}" readonly size="70" onclick="this.select()"></p>
+  {% endif %}
+  <form method="post">
+    {% csrf_token %}
+    <p><label for="id_dias">Prazo (dias):</label>
+       <input type="number" id="id_dias" name="dias" min="1" max="{{ prazo_maximo }}" value="{{ prazo_padrao }}"></p>
+    <button type="submit">Criar link</button>
+  </form>
+  <h2>Links ativos</h2>
+  {% if ativos %}
+    <table>
+      <thead><tr><th>Criado por</th><th>Criado em</th><th>Vence em</th><th>Downloads</th><th></th></tr></thead>
+      <tbody>{% for link in ativos %}
+        <tr><td>{{ link.criado_por }}</td><td>{{ link.criado_em|date:"d/m/Y H:i" }}</td>
+            <td>{{ link.vence_em|date:"d/m/Y H:i" }}</td><td>{{ link.downloads }}</td>
+            <td><form method="post">{% csrf_token %}<button type="submit" name="cancelar" value="{{ link.pk }}">Cancelar</button></form></td></tr>
+      {% endfor %}</tbody>
+    </table>
+  {% else %}
+    <p>Nenhum link ativo.</p>
+  {% endif %}
+{% endblock %}

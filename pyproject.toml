@@ -1,6 +1,6 @@
 [project]
 name = "infra-vibecoding"
-version = "0.3.0"
+version = "0.3.1"
 description = "Infra Vibecoding: motor de segurança obrigatório para sistemas Django"
 readme = "README.md"
 authors = [{ name = "Ed Freitas", email = "331106550+freitas260710@users.noreply.github.com" }]

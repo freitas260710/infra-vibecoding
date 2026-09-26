@@ -82,6 +82,7 @@ def _tela_como_sistema(view):
 
 class AdminSeguro(_CamposRelacionadosSeguros, admin.ModelAdmin):
     change_list_template = "infra_vibecoding/admin/change_list.html"
+    permite_planilha = True  # botões Importar e Exportar (US I.1); tabelas internas do 00 desligam
 
     def get_urls(self):
         from django.urls import path
@@ -104,7 +105,8 @@ class AdminSeguro(_CamposRelacionadosSeguros, admin.ModelAdmin):
 
         from . import planilhas
 
-        if formato not in ("csv", "xlsx") or not self.has_view_or_change_permission(request):
+        if (formato not in ("csv", "xlsx") or not self.permite_planilha
+                or not self.has_view_or_change_permission(request)):
             raise Http404
         lista = self.get_changelist_instance(request)
         queryset = lista.get_queryset(request)
@@ -120,7 +122,7 @@ class AdminSeguro(_CamposRelacionadosSeguros, admin.ModelAdmin):
 
         pode_criar = self.has_add_permission(request)
         pode_atualizar = self.has_change_permission(request)
-        if not (pode_criar or pode_atualizar):
+        if not self.permite_planilha or not (pode_criar or pode_atualizar):
             raise PermissionDenied
         contexto = {
             **self.admin_site.each_context(request),
@@ -452,4 +454,55 @@ class AdminUsuarioSeguro(AdminSeguro, UserAdmin):
         if "form" not in kwargs:
             kwargs["form"] = _formulario_criacao(self.model) if obj is None else _formulario_edicao(self.model)
         return super().get_form(request, obj, **kwargs)
+
+
+# Links de compartilhamento de arquivos (US 4.2): a tela de banco lista e cancela, nunca cria nem edita.
+
+class AdminLinkDeCompartilhamento(AdminSeguro):
+    permite_planilha = False
+    list_display = ("arquivo", "criado_por", "criado_em", "vence_em", "situacao", "downloads")
+    list_filter = ("criado_em", "vence_em")
+    search_fields = ("criado_por", "arquivo__nome")
+    readonly_fields = ("arquivo", "criado_por", "criado_em", "vence_em", "cancelado_em", "cancelado_por",
+                       "downloads", "ultimo_download_em")
+    fields = readonly_fields
+    actions = ["cancelar_links"]
+
+    @admin.display(description="situação")
+    def situacao(self, obj):
+        if obj.cancelado_em:
+            return "Cancelado"
+        return "Ativo" if obj.ativo else "Vencido"
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_view_permission(self, request, obj=None):
+        return request.user.is_active and request.user.is_staff and request.user.is_superuser
+
+    @admin.action(description="Cancelar os links selecionados")
+    def cancelar_links(self, request, queryset):
+        from django.utils import timezone
+
+        quantos = 0
+        for link in queryset:
+            if link.cancelado_em is None:
+                link.cancelado_em, link.cancelado_por = timezone.now(), request.user.email
+                link.salvar_como_sistema(_motivo(request, f"cancelou um link de {link.arquivo.nome}"),
+                                         update_fields=["cancelado_em", "cancelado_por"])
+                quantos += 1
+        self.message_user(request, f"{quantos} link(s) cancelado(s).", messages.SUCCESS)
+
+
+def _registrar_tabelas_do_00():
+    from .models import LinkDeCompartilhamento
+
+    if not admin.site.is_registered(LinkDeCompartilhamento):
+        admin.site.register(LinkDeCompartilhamento, AdminLinkDeCompartilhamento)
+
+
+_registrar_tabelas_do_00()
 

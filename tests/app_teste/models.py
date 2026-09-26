@@ -52,3 +52,4 @@ class Anexo(ModeloSeguro):
     pedido = models.ForeignKey(Pedido, on_delete=models.CASCADE, related_name="anexos")
     arquivo = CampoArquivo(tipos=["imagem", "pdf"], tamanho_max_mb=1, blank=False)
     comprovante = CampoArquivo(tipos=["pdf"], tamanho_max_mb=1)
+    foto_publica = CampoArquivo(tipos=["imagem"], publico="foto do pedido na vitrine pública dos testes")

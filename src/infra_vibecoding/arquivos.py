@@ -52,7 +52,7 @@ from pathlib import Path
 from django import forms
 from django.apps import apps
 from django.conf import settings
-from django.core.exceptions import ImproperlyConfigured, ValidationError
+from django.core.exceptions import FieldDoesNotExist, ImproperlyConfigured, ValidationError
 from django.core.files.base import ContentFile
 from django.core.files.uploadhandler import FileUploadHandler, StopUpload
 from django.db import models, transaction
@@ -228,7 +228,18 @@ class ArquivoRef:
 
     @property
     def url(self):
+        if self.guardado and self.guardado.publico:
+            return reverse("arquivo_publico", args=[self.id])
         return reverse("baixar_arquivo", args=[self.id])
+
+    @property
+    def url_compartilhar(self):
+        """Tela do 00 para criar e cancelar links de compartilhamento (só abre para quem a política libera)."""
+        return reverse("compartilhar_arquivo", args=[self.id])
+
+    @property
+    def publico(self):
+        return bool(self.guardado and self.guardado.publico)
 
     def __str__(self):
         return self.nome
@@ -299,7 +310,12 @@ class CampoArquivo(models.UUIDField):
 
     description = "Arquivo privado (Infra Vibecoding)"
 
-    def __init__(self, *args, tipos=TIPOS_PADRAO, tamanho_max_mb=PADRAO_MB, **kwargs):
+    def __init__(self, *args, tipos=TIPOS_PADRAO, tamanho_max_mb=PADRAO_MB, publico=None, **kwargs):
+        if publico is not None and (not isinstance(publico, str) or len(publico.strip()) < 10):
+            raise ImproperlyConfigured(
+                'CampoArquivo: campo público precisa de um motivo escrito, ex.: publico="foto do produto na vitrine '
+                'pública" (e autorização do Ed). Sem motivo, o arquivo é privado.')
+        self.publico = publico.strip() if publico else None
         tipos = tuple(tipos)
         desconhecidos = [t for t in tipos if t not in FAMILIAS]
         if desconhecidos or not tipos:
@@ -441,7 +457,7 @@ def _guardar(registro, campo, arquivo):
     else:
         autor = f"sistema ({quem})"[:254]
     return {"id": id_, "nome": nome, "tipo": tipo, "tamanho": len(conteudo), "caminho": caminho,
-            "espaco": espaco, "autor": autor}
+            "espaco": espaco, "autor": autor, "publico": bool(campo.publico)}
 
 
 def _apagar_do_armazenamento(caminhos):
@@ -474,7 +490,7 @@ def _depois_de_salvar(sender, instance, **kwargs):
             ArquivoGuardado(
                 id=novo["id"], modelo=instance._meta.label, registro=str(instance.pk), campo=campo,
                 nome=novo["nome"], tipo=novo["tipo"], tamanho=novo["tamanho"], caminho=novo["caminho"],
-                espaco=novo["espaco"], enviado_por=novo["autor"],
+                espaco=novo["espaco"], enviado_por=novo["autor"], publico=novo["publico"],
             ).salvar_como_sistema(f"arquivos: {novo['autor']} enviou {novo['nome']} para {instance._meta.label} "
                                   f"{instance.pk} ({campo})", force_insert=True)
             log.info("arquivos: %s enviou %s (%s bytes) para %s %s", novo["autor"], novo["nome"], novo["tamanho"],
@@ -528,6 +544,28 @@ def _pode_baixar(usuario, guardado):
     return None, False
 
 
+def _entregar(guardado, publico=False):
+    resposta = FileResponse(armazenamento().open(guardado.caminho, "rb"), content_type=guardado.tipo,
+                            as_attachment=guardado.tipo not in _EXIBIR_NO_NAVEGADOR, filename=guardado.nome)
+    resposta["X-Content-Type-Options"] = "nosniff"
+    resposta["Content-Security-Policy"] = "sandbox; default-src 'none'; img-src 'self'; style-src 'unsafe-inline'"
+    resposta["Cache-Control"] = "public, max-age=86400" if publico else "private, no-store"
+    return resposta
+
+
+def _ainda_no_registro(guardado):
+    """O arquivo continua sendo o do campo do registro (não foi trocado nem o registro excluído)?"""
+    try:
+        modelo = apps.get_model(guardado.modelo)
+        campo = modelo._meta.get_field(guardado.campo)
+    except (LookupError, FieldDoesNotExist):
+        return None
+    registro = modelo._base_manager.filter(pk=guardado.registro).first()
+    if registro is not None and getattr(registro, campo.attname) == guardado.pk:
+        return registro
+    return None
+
+
 def baixar(request, id):
     """Entrega o arquivo para quem pode ver o registro. Para os outros: "não encontrado" (não confirma que existe)."""
     from .models import ArquivoGuardado
@@ -539,21 +577,153 @@ def baixar(request, id):
         raise Http404
     log.info("arquivos: %s baixou %s de %s %s (%s)", request.user.email, guardado.nome, guardado.modelo,
              guardado.registro, como)
-    resposta = FileResponse(armazenamento().open(guardado.caminho, "rb"), content_type=guardado.tipo,
-                            as_attachment=guardado.tipo not in _EXIBIR_NO_NAVEGADOR, filename=guardado.nome)
-    resposta["X-Content-Type-Options"] = "nosniff"
-    resposta["Content-Security-Policy"] = "sandbox; default-src 'none'; img-src 'self'; style-src 'unsafe-inline'"
-    resposta["Cache-Control"] = "private, no-store"
+    return _entregar(guardado)
+
+
+def baixar_publico(request, id):
+    """Arquivo de campo público (US 4.2): abre sem login, enquanto for o arquivo atual do registro."""
+    from .models import ArquivoGuardado
+
+    guardado = ArquivoGuardado._base_manager.filter(pk=id, publico=True).first()
+    if guardado is None or _ainda_no_registro(guardado) is None:
+        raise Http404
+    return _entregar(guardado, publico=True)
+
+
+# Link de compartilhamento (US 4.2, D58)
+
+PRAZO_PADRAO_DIAS = 7
+PRAZO_MAXIMO_DIAS = 30
+
+
+def _resumo_do_codigo(codigo):
+    import hashlib
+
+    return hashlib.sha256(codigo.encode()).hexdigest()
+
+
+def _registro_para_compartilhar(usuario, guardado):
+    """O registro do arquivo, se o usuário vê o registro E a política libera "compartilhar". Senão None."""
+    from .dados import pode
+
+    registro = _ainda_no_registro(guardado)
+    if registro is None:
+        return None
+    visivel = type(registro).objects.para(usuario).filter(pk=registro.pk).exists()
+    if not (visivel and pode(usuario, "compartilhar", registro)):
+        return None
+    return registro
+
+
+def compartilhar(usuario, registro, campo, dias=PRAZO_PADRAO_DIAS, request=None):
+    """Cria um link do arquivo para quem não é usuário. Devolve (link, endereço completo ou caminho).
+    SemPermissao se a política não libera "compartilhar" para este usuário e registro."""
+    import secrets
+
+    from django.utils import timezone
+
+    from .dados import SemPermissao
+    from .models import ArquivoGuardado, LinkDeCompartilhamento
+
+    ref = arquivo_de(registro, campo)
+    guardado = ArquivoGuardado._base_manager.filter(pk=ref.id).first() if ref else None
+    if guardado is None or _registro_para_compartilhar(usuario, guardado) is None:
+        log.warning("arquivos: %s tentou compartilhar sem permissão (%s %s)", getattr(usuario, "email", usuario),
+                    registro._meta.label, registro.pk)
+        raise SemPermissao("Sem permissão para compartilhar este arquivo.")
+    dias = int(dias)
+    if not 1 <= dias <= PRAZO_MAXIMO_DIAS:
+        raise ValidationError(f"O prazo vai de 1 a {PRAZO_MAXIMO_DIAS} dias.")
+    codigo = secrets.token_urlsafe(32)
+    link = LinkDeCompartilhamento(arquivo=guardado, resumo=_resumo_do_codigo(codigo), criado_por=usuario.email,
+                                  vence_em=timezone.now() + timezone.timedelta(days=dias))
+    link.salvar_como_sistema(f"arquivos: {usuario.email} compartilhou {guardado.nome} por {dias} dia(s)")
+    caminho = reverse("baixar_compartilhado", args=[codigo])
+    log.info("arquivos: %s criou link de %s para %s, vence em %s", usuario.email, dias, guardado.nome,
+             link.vence_em)
+    return link, request.build_absolute_uri(caminho) if request is not None else caminho
+
+
+def cancelar_compartilhamento(usuario, link):
+    from django.utils import timezone
+
+    from .dados import SemPermissao
+
+    if _registro_para_compartilhar(usuario, link.arquivo) is None:
+        raise SemPermissao("Sem permissão para cancelar este link.")
+    if link.cancelado_em is None:
+        link.cancelado_em, link.cancelado_por = timezone.now(), usuario.email
+        link.salvar_como_sistema(f"arquivos: {usuario.email} cancelou um link de {link.arquivo.nome}",
+                                 update_fields=["cancelado_em", "cancelado_por"])
+    return link
+
+
+def tela_compartilhar(request, id):
+    """Tela pronta do 00: criar link (prazo), ver os links ativos do arquivo e cancelar. 404 para quem não pode."""
+    from django.contrib import messages
+    from django.shortcuts import redirect, render
+    from django.utils import timezone
+
+    from .models import ArquivoGuardado, LinkDeCompartilhamento
+
+    guardado = ArquivoGuardado._base_manager.filter(pk=id).first()
+    registro = None if guardado is None else _registro_para_compartilhar(request.user, guardado)
+    if registro is None:
+        raise Http404
+    novo = request.session.pop("infra_vibecoding_link_novo", None)  # mostrado uma vez só
+    if request.method == "POST":
+        if "cancelar" in request.POST:
+            link = LinkDeCompartilhamento._base_manager.filter(pk=request.POST["cancelar"], arquivo=guardado).first()
+            if link is not None:
+                cancelar_compartilhamento(request.user, link)
+                messages.success(request, "Link cancelado.")
+            return redirect(request.path)
+        try:
+            dias = int(request.POST.get("dias") or PRAZO_PADRAO_DIAS)
+            _, endereco = compartilhar(request.user, registro, guardado.campo, dias, request)
+            # Volta para a tela por GET: recarregar a página não cria outro link.
+            request.session["infra_vibecoding_link_novo"] = endereco
+        except (ValueError, ValidationError):
+            messages.error(request, f"O prazo vai de 1 a {PRAZO_MAXIMO_DIAS} dias.")
+        return redirect(request.path)
+    ativos = LinkDeCompartilhamento._base_manager.filter(arquivo=guardado, cancelado_em__isnull=True,
+                                                         vence_em__gt=timezone.now())
+    return render(request, "infra_vibecoding/arquivos/compartilhar.html", {
+        "arquivo": guardado, "novo": novo, "ativos": ativos,
+        "prazo_padrao": PRAZO_PADRAO_DIAS, "prazo_maximo": PRAZO_MAXIMO_DIAS,
+    })
+
+
+def baixar_compartilhado(request, codigo):
+    """Quem recebeu o link baixa sem login, dentro do prazo. Vencido, cancelado ou arquivo trocado: página própria."""
+    from django.db.models import F
+    from django.shortcuts import render
+    from django.utils import timezone
+
+    from .limites import endereco_de
+    from .models import LinkDeCompartilhamento
+
+    link = LinkDeCompartilhamento._base_manager.select_related("arquivo").filter(
+        resumo=_resumo_do_codigo(codigo)).first()
+    if link is None or not link.ativo or _ainda_no_registro(link.arquivo) is None:
+        log.warning("arquivos: link de compartilhamento inválido, vencido ou cancelado (%s)", endereco_de(request))
+        return render(request, "infra_vibecoding/arquivos/link_indisponivel.html", status=410)
+    type(link)._base_manager.filter(pk=link.pk).update(downloads=F("downloads") + 1,
+                                                        ultimo_download_em=timezone.now())
+    log.info("arquivos: %s baixado por link de compartilhamento criado por %s (%s)", link.arquivo.nome,
+             link.criado_por, endereco_de(request))
+    resposta = _entregar(link.arquivo)
+    resposta["X-Robots-Tag"] = "noindex"
     return resposta
 
 
 def _declarar():
-    from .telas import logado
+    from .telas import logado, publica
 
-    return logado(baixar)
+    return logado(baixar), publica(baixar_publico), logado(tela_compartilhar), publica(baixar_compartilhado)
 
 
-baixar = _declarar()
+baixar, baixar_publico, tela_compartilhar, baixar_compartilhado = _declarar()
 
 
 # Proteção no recebimento: nenhum envio passa de 100 MB (antes mesmo de chegar na tela)

@@ -1,7 +1,7 @@
 """Endereços das telas de login. O sistema inclui com: path("", include("infra_vibecoding.login.urls"))."""
 from django.urls import path
 
-from ..arquivos import baixar
+from ..arquivos import baixar, baixar_compartilhado, baixar_publico, tela_compartilhar
 from ..erros import ver_pagina_de_erro
 from . import views
 
@@ -25,6 +25,10 @@ urlpatterns = [
     path("dois-fatores/desligar/", views.DesligarDoisFatores.as_view(), name="desligar_dois_fatores"),
     # Baixar arquivo privado: só quem pode ver o registro, conferido a cada clique (US 4.1)
     path("arquivos/<uuid:id>/", baixar, name="baixar_arquivo"),
+    # Arquivo de campo público e links de compartilhamento (US 4.2)
+    path("arquivos/publico/<uuid:id>/", baixar_publico, name="arquivo_publico"),
+    path("arquivos/<uuid:id>/compartilhar/", tela_compartilhar, name="compartilhar_arquivo"),
+    path("c/<str:codigo>/", baixar_compartilhado, name="baixar_compartilhado"),
     # Ver as páginas de erro como o usuário vê (só no computador do desenvolvedor, US 3.5)
     path("erros/ver/<str:tipo>/", ver_pagina_de_erro, name="ver_pagina_de_erro"),
     # Cadastro público (desligado por padrão: responde 404 enquanto o sistema não ligar)

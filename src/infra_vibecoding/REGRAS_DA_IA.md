@@ -78,8 +78,12 @@ quebradas. Mesmo assim, siga todas: acertar de primeira é mais rápido do que e
 - Mostrar e baixar: `{% load arquivos %}` e `{{ registro|arquivo:"campo" }}` (nome, tamanho, tipo, eh_imagem, url).
   O link só abre para quem vê o registro pela política, conferido a cada clique. Nunca servir arquivo por outra view.
 - Limites por pessoa ou plano e cota de espaço: `ARQUIVOS_LIMITES = "app.modulo.funcao"` no settings.py (exemplo
-  no começo de `infra_vibecoding/arquivos.py`). Arquivo público ou link para quem não é usuário: ainda não existe
-  (US 4.2); não improvisar.
+  no começo de `infra_vibecoding/arquivos.py`).
+- Campo público (abre sem login) só com autorização do Ed e motivo escrito: `CampoArquivo(publico="motivo")`.
+  Arquivos enviados enquanto o campo era privado continuam privados.
+- Mandar arquivo privado para quem não é usuário: só pelo link de compartilhamento do 00 (tela pronta em
+  `{{ a.url_compartilhar }}` ou `compartilhar(usuario, registro, "campo", dias)`), liberado pela ação
+  "compartilhar" na política da tabela (fechado se a política não liberar). Prazo de 1 a 30 dias, cancelável.
 
 ## Páginas de erro
 - As páginas de erro são do 00, em português e sem nada técnico: 404, 403, 403 de formulário vencido (CSRF), 400,

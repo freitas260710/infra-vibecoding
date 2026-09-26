@@ -1,5 +1,28 @@
 # Histórico de versões
 
+## 0.4.2
+
+Monitor de erros com Sentry (US 6.3, decisões D59 e D60).
+
+- O 00 liga o Sentry sozinho quando o ambiente ou o `.env` tem `SENTRY_DSN`. Sem ele, nada é enviado (no Mac fica
+  desligado, a não ser que o `.env` tenha o DSN). Biblioteca nova no 00: sentry-sdk.
+- Cada erro vai com o código do clique (etiqueta `pedido`), o código do erro que a pessoa vê (`codigo_do_erro`,
+  E-...), o ambiente, a versão do 00 (`versao_00`) e a versão do sistema (`VERSAO_DO_SISTEMA`, quando o servidor
+  informar). A pessoa vai só pelo número dela.
+- Sem dados pessoais: não vão e-mail, nome, senha, cookies, cabeçalhos, conteúdo de formulário, endereço de internet,
+  valores das variáveis do programa, rastros (consultas e registros do servidor), sessões nem o caminho completo da
+  tela (vai o modelo, ex.: /redefinir-senha/{uidb64}/{token}/). E-mails, números longos (CPF, CNPJ, cartão) e
+  "senha=..." na mensagem do erro viram marcadores.
+- O sistema não liga se alguém chamar `sentry_sdk.init` por conta própria ou afrouxar as opções (SEC.E132).
+- Tela de Registros: com `SENTRY_PAINEL` (endereço da lista de erros do projeto no Sentry), a linha do erro ganha o
+  link "ver no Sentry", já filtrado pelo código do clique.
+- Sistemas novos: `.env.exemplo` com `SENTRY_DSN` e `SENTRY_PAINEL`.
+- Testes do 00: corrigido um teste instável da verificação em duas etapas (gerava o código pelo relógio real em vez
+  do relógio parado do teste e falhava quando rodava na virada dos 30 segundos do código).
+- Ao atualizar para esta versão: nada obrigatório. Para ligar, criar o projeto no Sentry e pôr `SENTRY_DSN` (e
+  `SENTRY_PAINEL`) no `.env` do servidor.
+- 500 testes automáticos.
+
 ## 0.4.1
 
 Registro de acessos e tela única de Registros (US 6.2, decisão D60).

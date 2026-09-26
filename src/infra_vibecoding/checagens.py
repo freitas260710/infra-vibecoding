@@ -624,3 +624,19 @@ def sec13_codigo_do_pedido(app_configs=None, **kwargs):
             id="SEC.E131",
         )]
     return []
+
+
+# Monitor de erros sem dados pessoais (US 6.3)
+
+@register(Tags.security)
+def sec13_monitor_de_erros(app_configs=None, **kwargs):
+    from .monitor import configuracao_segura
+
+    problemas = configuracao_segura()
+    if problemas:
+        return [Error(
+            f"O envio de erros ao Sentry foi afrouxado ({', '.join(problemas)}): dados pessoais poderiam sair do sistema.",
+            hint="Não chame sentry_sdk.init no sistema. O 00 liga o Sentry sozinho quando há SENTRY_DSN no .env.",
+            id="SEC.E132",
+        )]
+    return []

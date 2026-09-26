@@ -152,6 +152,11 @@ EMAIL_REMETENTE=
 
 # Caixa de teste: fora de produção, TODO e-mail vai só para ela (com o destinatário original no assunto)
 EMAIL_DE_TESTE=
+
+# Monitor de erros (Sentry). Vazio: nada é enviado. DSN: Sentry > projeto > Settings > Client Keys (DSN).
+# SENTRY_PAINEL: endereço da lista de erros do projeto no Sentry (para o link na tela de Registros).
+SENTRY_DSN=
+SENTRY_PAINEL=
 '''
 
 _MANAGE = '''

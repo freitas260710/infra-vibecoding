@@ -221,3 +221,10 @@ LOGGING = {
         "infra_vibecoding.erros": {"handlers": ["console"], "level": "INFO", "propagate": True},
     },
 }
+
+# Monitor de erros (US 6.3, D59): liga sozinho quando o ambiente ou o .env tem SENTRY_DSN. Sem dados pessoais
+# (SEC.E132). SENTRY_PAINEL: endereço da lista de erros no Sentry, para o link na tela de Registros.
+SENTRY_PAINEL = os.environ.get("SENTRY_PAINEL", "")
+from .monitor import ligar as _ligar_monitor  # noqa: E402
+
+_ligar_monitor()

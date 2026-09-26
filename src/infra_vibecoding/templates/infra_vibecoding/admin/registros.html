@@ -51,7 +51,7 @@ Só superusuário. Clicar num código mostra tudo o que aconteceu naquele clique
           <td><span class="iv-origem iv-{{ l.r_origem }}">{{ l.r_origem }}</span>
               <span{% if l.r_tipo == "negado" or l.r_tipo == "bloqueado" %} class="iv-negado"{% endif %}>{{ l.r_tipo_nome }}</span></td>
           <td>{{ l.r_pessoa|default:"(sem login)" }}</td>
-          <td>{% if l.r_origem == "erros" %}erro interno {{ l.r_o_que }}{% else %}{{ l.r_o_que }}{% endif %}</td>
+          <td>{% if l.r_origem == "erros" %}erro interno {{ l.r_o_que }}{% if l.r_sentry %}<br><a href="{{ l.r_sentry }}" target="_blank" rel="noopener noreferrer">ver no Sentry</a>{% endif %}{% else %}{{ l.r_o_que }}{% endif %}</td>
           <td>{{ l.r_onde }}{% if l.r_origem != "dados" and l.r_extra %}<br><small>{{ l.r_extra }}</small>{% endif %}</td>
           <td>{% if l.r_pedido %}<a href="?pedido={{ l.r_pedido }}">{{ l.r_pedido }}</a>{% endif %}</td>
           <td>{% if l.r_origem == "dados" %}<a href="{% url 'admin:infra_vibecoding_historico_change' l.r_id %}">detalhes</a>{% else %}<a href="{% url 'admin:infra_vibecoding_acesso_change' l.r_id %}">detalhes</a>{% endif %}</td>

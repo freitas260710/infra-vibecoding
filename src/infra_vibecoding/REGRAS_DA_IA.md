@@ -122,6 +122,12 @@ quebradas. Mesmo assim, siga todas: acertar de primeira é mais rápido do que e
 - Acessos ficam um ano. Até existirem os jobs, rodar `uv run python manage.py limpar_registros` uma vez por dia nos
   servidores. O histórico dos dados nunca é apagado.
 
+## Monitor de erros (Sentry)
+- O 00 liga o Sentry sozinho quando o `.env` tem `SENTRY_DSN`, sem dados pessoais. Nunca chamar `sentry_sdk.init`
+  no sistema nem mexer nas opções dele (SEC.E132). Nunca colocar DSN, chave ou senha no código.
+- Nunca pôr dado pessoal (e-mail, CPF, nome) em mensagem de exceção (`raise ...("...")`): a mensagem vai para o
+  Sentry. O 00 troca e-mails, números longos e "senha=" por marcadores, mas isso é a última defesa, não a regra.
+
 ## Limite de pedidos (força bruta)
 - O 00 limita TODO pedido (120 por minuto por visitante, 240 por usuário logado) e bloqueia o login por 15 minutos
   depois de 5 senhas erradas (SEC.E066). Não redefinir MIDDLEWARE.

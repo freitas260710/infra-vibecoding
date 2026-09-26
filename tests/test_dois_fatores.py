@@ -49,7 +49,9 @@ def ligar_email(usuario):
 
 
 def codigo_do_app(chave):
-    return pyotp.TOTP(chave).now()
+    # Pelo relógio parado do teste (time.time), o mesmo que o 00 usa. O .now() do pyotp lê o relógio real e, se o
+    # teste cruzasse a virada de 30 segundos, geraria o código do passo seguinte (teste instável, 0.4.2).
+    return pyotp.TOTP(chave).at(time.time())
 
 
 def codigo_do_email(mensagem):

@@ -602,11 +602,15 @@ class AdminAcesso(AdminSeguro):
             inicio = max(int(g.get("inicio", 0)), 0)
         except ValueError:
             inicio = 0
+        from .monitor import link_do_erro
+
         linhas, total = consultar_registros(
             tipo=filtros["tipo"], pessoa=filtros["pessoa"], de=parse_date(filtros["de"] or "") if filtros["de"] else None,
             ate=parse_date(filtros["ate"] or "") if filtros["ate"] else None, tabela=filtros["tabela"],
             pedido=filtros["pedido"], inicio=inicio,
         )
+        for linha in linhas:
+            linha["r_sentry"] = link_do_erro(linha["r_pedido"]) if linha["r_origem"] == "erros" else ""
         from django.http import QueryDict
 
         def pagina(novo_inicio):
